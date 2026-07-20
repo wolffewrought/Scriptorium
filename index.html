@@ -139,30 +139,30 @@ input[type=range]{flex:1;accent-color:var(--brass);min-width:0}
 #sheet:focus{outline:none}
 
 /* live theme skins */
-.t-parchment #titleInput,.t-parchment#sheet{color:#3a2b17}
-.t-parchment#sheet{
+.t-parchment #titleInput,.skin.t-parchment{color:#3a2b17}
+.skin.t-parchment{
   background:
     radial-gradient(ellipse at 20% 10%, rgba(120,90,40,.10), transparent 50%),
     radial-gradient(ellipse at 80% 90%, rgba(100,70,30,.14), transparent 55%),
     radial-gradient(ellipse at 50% 50%, #efe4c8, #dcc99b 90%);
   box-shadow:0 4px 18px rgba(0,0,0,.7), inset 0 0 40px rgba(90,60,20,.25);
 }
-.t-grimdark #titleInput,.t-grimdark#sheet{color:#d8d2c4}
-.t-grimdark#sheet{
+.t-grimdark #titleInput,.skin.t-grimdark{color:#d8d2c4}
+.skin.t-grimdark{
   background:
     radial-gradient(ellipse at 50% 0%, #262220, transparent 60%),
     linear-gradient(#151312,#0c0b0a);
   box-shadow:0 4px 18px rgba(0,0,0,.8), inset 0 0 0 1px #3d2020;
 }
-.t-gothic #titleInput,.t-gothic#sheet{color:#c8a659}
-.t-gothic#sheet{
+.t-gothic #titleInput,.skin.t-gothic{color:#c8a659}
+.skin.t-gothic{
   background:
     radial-gradient(ellipse at 50% 20%, #1c2318, transparent 65%),
     linear-gradient(#12160f,#0a0c08);
   box-shadow:0 4px 18px rgba(0,0,0,.8), inset 0 0 0 2px #4a3b1a, inset 0 0 0 5px #0a0c08, inset 0 0 0 6px #33290f;
 }
-.t-plain #titleInput,.t-plain#sheet{color:#111}
-.t-plain#sheet{background:#fbfaf7}
+.t-plain #titleInput,.skin.t-plain{color:#111}
+.skin.t-plain{background:#fbfaf7}
 
 .fontlist{list-style:none;margin-top:8px}
 .fontlist li{
@@ -172,6 +172,20 @@ input[type=range]{flex:1;accent-color:var(--brass);min-width:0}
 .fontlist li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fontlist li small{color:var(--bone-dim);font-size:18px}
 .empty{color:var(--bone-dim);font-style:italic;font-size:13px;padding:6px 2px}
+
+details.panel summary{list-style:none;cursor:pointer}
+details.panel summary::-webkit-details-marker{display:none}
+details.panel summary .label{margin-bottom:0;display:inline}
+details.panel summary::after{content:" ▾";color:var(--brass-dim);font-size:11px}
+details.panel[open] summary{margin-bottom:10px}
+.glyphgrid{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.gcell{width:62px;background:var(--ink);border:1px solid #453a26;border-radius:4px;padding:4px;text-align:center;position:relative}
+.gcell img{width:100%;height:38px;object-fit:contain;display:block}
+.gcell b{font-size:11px;color:var(--bone);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:normal;margin-top:2px}
+.gcell button{position:absolute;top:-8px;right:-8px;padding:0;width:20px;height:20px;line-height:18px;font-size:10px;border-radius:50%}
+.pvlabel{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--bone-dim);margin:12px 2px 6px}
+.preview{padding:24px 18px;border-radius:2px;min-height:50px;white-space:pre-wrap;overflow-wrap:anywhere}
+.preview .g{display:inline-block;height:1em;vertical-align:-0.12em}
 
 .exportbar{
   position:fixed;left:0;right:0;bottom:0;
@@ -220,6 +234,31 @@ input[type=range]{flex:1;accent-color:var(--brass);min-width:0}
     </div>
   </section>
 
+  <details class="panel" id="glyphPanel">
+    <summary><span class="label">Font Maker — image glyphs</span></summary>
+    <div class="row">
+      <select id="gsSelect" aria-label="Glyph set"></select>
+      <button id="gsNew">+ Set</button>
+      <button id="gsDel" class="danger" aria-label="Delete set">✕</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input type="text" id="gSeq" placeholder="Letter or combo — a, me, ll…" style="flex:1" autocapitalize="off">
+      <button id="gAdd">+ Img</button>
+      <button id="gBatch">Batch</button>
+    </div>
+    <label class="row" style="margin-top:10px;font-size:13px;gap:6px">
+      <input type="checkbox" id="gTint"> Tint glyphs to theme ink
+    </label>
+    <div class="slider-row">
+      <span>Glyph gap</span>
+      <input type="range" id="gGap" min="0" max="30" value="4">
+      <output id="gGapOut">.04</output>
+    </div>
+    <div class="glyphgrid" id="gGrid"></div>
+    <input type="file" id="gFile" accept="image/*,.svg" hidden>
+    <input type="file" id="gFileBatch" accept="image/*,.svg" hidden multiple>
+  </details>
+
   <section class="panel">
     <span class="label">Theme</span>
     <div class="chips" id="themeChips">
@@ -232,7 +271,9 @@ input[type=range]{flex:1;accent-color:var(--brass);min-width:0}
 
   <section class="sheet-frame t-parchment" id="sheetFrame">
     <input type="text" id="titleInput" placeholder="Title (optional)" aria-label="Document title">
-    <textarea id="sheet" class="t-parchment" placeholder="Begin your account here…" aria-label="Document body"></textarea>
+    <textarea id="sheet" class="skin t-parchment" placeholder="Begin your account here…" aria-label="Document body"></textarea>
+    <div class="pvlabel" id="pvLabel" hidden>Glyph preview</div>
+    <div class="preview skin t-parchment" id="preview" hidden></div>
   </section>
 </div>
 
@@ -247,11 +288,13 @@ input[type=range]{flex:1;accent-color:var(--brass);min-width:0}
 /* ---------- state ---------- */
 const S = {
   theme:"parchment",
-  fontId:"",          // "" = default serif
+  fontId:"",          // "" = default serif | fontId | "g:<glyphSetId>"
   size:20,
   lead:1.5,
   fonts:new Map()     // id -> {name, buf(ArrayBuffer)}
 };
+const GS = new Map();  // glyph sets: id -> {name,tint,gap,items:Map(lowerSeq->item),sorted:[keys]}
+let GSedit = null;     // set currently open in the maker panel
 const $ = id => document.getElementById(id);
 const sheet=$("sheet"), titleInput=$("titleInput"), frame=$("sheetFrame");
 
@@ -263,10 +306,12 @@ function toast(msg){
 /* ---------- IndexedDB ---------- */
 function db(){
   return new Promise((res,rej)=>{
-    const r=indexedDB.open("scriptorium",1);
-    r.onupgradeneeded=()=>{ 
-      r.result.createObjectStore("fonts",{keyPath:"id"});
-      r.result.createObjectStore("kv");
+    const r=indexedDB.open("scriptorium",2);
+    r.onupgradeneeded=()=>{
+      const d=r.result;
+      if(!d.objectStoreNames.contains("fonts")) d.createObjectStore("fonts",{keyPath:"id"});
+      if(!d.objectStoreNames.contains("kv")) d.createObjectStore("kv");
+      if(!d.objectStoreNames.contains("glyphsets")) d.createObjectStore("glyphsets",{keyPath:"id"});
     };
     r.onsuccess=()=>res(r.result);
     r.onerror=()=>rej(r.error);
@@ -316,14 +361,25 @@ async function deleteFont(id){
 }
 function renderFonts(){
   const sel=$("fontSelect"), list=$("fontList");
-  sel.innerHTML='<option value="">Default serif</option>';
+  sel.innerHTML="";
+  const og1=document.createElement("optgroup"); og1.label="Fonts";
+  const d=document.createElement("option"); d.value=""; d.textContent="Default serif"; og1.appendChild(d);
+  for(const [id,f] of S.fonts){
+    const o=document.createElement("option"); o.value=id; o.textContent=f.name; og1.appendChild(o);
+  }
+  sel.appendChild(og1);
+  if(GS.size){
+    const og2=document.createElement("optgroup"); og2.label="Glyph sets";
+    for(const [id,g] of GS){
+      const o=document.createElement("option"); o.value="g:"+id; o.textContent="⟐ "+g.name; og2.appendChild(o);
+    }
+    sel.appendChild(og2);
+  }
   list.innerHTML="";
   if(!S.fonts.size){
     list.innerHTML='<li class="empty">No fonts loaded yet — add a .ttf to write in it.</li>';
   }
   for(const [id,f] of S.fonts){
-    const o=document.createElement("option");
-    o.value=id; o.textContent=f.name; sel.appendChild(o);
     const li=document.createElement("li");
     const span=document.createElement("span"); span.textContent=f.name;
     const del=document.createElement("button"); del.className="danger"; del.textContent="✕";
@@ -332,20 +388,227 @@ function renderFonts(){
     li.append(span,del); list.appendChild(li);
   }
   sel.value=S.fontId;
+  if(sel.value!==S.fontId){ S.fontId=""; sel.value=""; }
 }
+
+/* ---------- glyph sets (image font maker) ---------- */
+function activeGS(){
+  return S.fontId&&S.fontId.startsWith("g:") ? GS.get(S.fontId.slice(2)) : null;
+}
+function rebuildSorted(g){
+  g.sorted=[...g.items.keys()].sort((a,b)=>b.length-a.length);
+}
+function tokenize(text,g){
+  const out=[]; const low=text.toLowerCase();
+  let i=0, buf="";
+  const seqs=g.sorted;
+  while(i<text.length){
+    let hit=null;
+    for(let s=0;s<seqs.length;s++){
+      if(low.startsWith(seqs[s],i)){ hit=seqs[s]; break; }
+    }
+    if(hit){
+      if(buf){ out.push({t:buf}); buf=""; }
+      out.push({g:hit});
+      i+=hit.length;
+    }else{
+      buf+=text[i]; i++;
+    }
+  }
+  if(buf) out.push({t:buf});
+  return out;
+}
+async function hydrateItem(it){
+  it.url=URL.createObjectURL(it.blob);
+  const img=new Image();
+  img.src=it.url;
+  try{ await img.decode(); }catch(e){}
+  it.img=img;
+  it.aspect=(img.naturalWidth&&img.naturalHeight)?img.naturalWidth/img.naturalHeight:1;
+}
+async function loadGlyphSets(){
+  const rows=await idb("glyphsets","readonly",st=>st.getAll());
+  for(const r of (rows||[])){
+    const g={name:r.name,tint:!!r.tint,gap:r.gap||0,items:new Map(),sorted:[]};
+    for(const it of (r.items||[])){
+      const item={seq:it.seq,blob:it.blob};
+      await hydrateItem(item);
+      g.items.set(it.seq.toLowerCase(),item);
+    }
+    rebuildSorted(g);
+    GS.set(r.id,g);
+  }
+  if(GS.size&&!GSedit) GSedit=GS.keys().next().value;
+}
+function saveSet(id){
+  const g=GS.get(id); if(!g) return;
+  const rec={id,name:g.name,tint:!!g.tint,gap:g.gap||0,
+    items:[...g.items.values()].map(it=>({seq:it.seq,blob:it.blob}))};
+  idb("glyphsets","readwrite",st=>st.put(rec)).catch(e=>console.warn(e));
+}
+async function addMapping(seq,blob){
+  const g=GS.get(GSedit); if(!g||!seq) return;
+  const key=seq.toLowerCase();
+  const old=g.items.get(key);
+  if(old&&old.url) URL.revokeObjectURL(old.url);
+  const item={seq,blob};
+  await hydrateItem(item);
+  g.items.set(key,item);
+  rebuildSorted(g);
+  saveSet(GSedit);
+  renderGS(); refreshPreview();
+}
+function removeMapping(key){
+  const g=GS.get(GSedit); if(!g) return;
+  const it=g.items.get(key);
+  if(it&&it.url) URL.revokeObjectURL(it.url);
+  g.items.delete(key);
+  rebuildSorted(g);
+  saveSet(GSedit);
+  renderGS(); refreshPreview();
+}
+function renderGS(){
+  const sel=$("gsSelect"), grid=$("gGrid");
+  sel.innerHTML="";
+  for(const [id,g] of GS){
+    const o=document.createElement("option"); o.value=id; o.textContent=g.name; sel.appendChild(o);
+  }
+  if(!GS.size){
+    const o=document.createElement("option"); o.value=""; o.textContent="No sets — tap + Set"; sel.appendChild(o);
+  }
+  if(GSedit&&GS.has(GSedit)) sel.value=GSedit;
+  const g=GS.get(GSedit);
+  $("gTint").checked=!!(g&&g.tint);
+  $("gGap").value=g?Math.round((g.gap||0)*100):4;
+  $("gGapOut").textContent="."+String($("gGap").value).padStart(2,"0");
+  const dis=!g;
+  ["gSeq","gAdd","gBatch","gTint","gGap","gsDel"].forEach(i=>$(i).disabled=dis);
+  grid.innerHTML="";
+  if(!g) return;
+  if(!g.items.size){
+    grid.innerHTML='<div class="empty">Assign images to letters or combos — batch names files by their letters (me.png → "me").</div>';
+    return;
+  }
+  for(const [key,it] of g.items){
+    const cell=document.createElement("div"); cell.className="gcell";
+    const im=document.createElement("img"); im.src=it.url; im.alt=it.seq;
+    const b=document.createElement("b"); b.textContent=it.seq;
+    const del=document.createElement("button"); del.className="danger"; del.textContent="✕";
+    del.setAttribute("aria-label","Remove "+it.seq);
+    del.onclick=()=>removeMapping(key);
+    cell.append(im,b,del); grid.appendChild(cell);
+  }
+}
+function glyphEl(g,it){
+  let el;
+  if(g.tint){
+    el=document.createElement("span");
+    el.className="g";
+    el.style.background="currentColor";
+    const m="url("+it.url+") center / contain no-repeat";
+    el.style.webkitMask=m; el.style.mask=m;
+  }else{
+    el=document.createElement("img");
+    el.className="g"; el.src=it.url; el.alt=it.seq;
+  }
+  el.style.width=it.aspect.toFixed(3)+"em";
+  if(g.gap) el.style.marginRight=g.gap+"em";
+  return el;
+}
+function renderPreview(){
+  const g=activeGS(), pv=$("preview");
+  if(!g){ pv.hidden=true; $("pvLabel").hidden=true; return; }
+  pv.hidden=false; $("pvLabel").hidden=false;
+  pv.innerHTML="";
+  const frag=document.createDocumentFragment();
+  for(const tk of tokenize(sheet.value,g)){
+    if(tk.g!==undefined){
+      const it=g.items.get(tk.g);
+      if(it){ frag.appendChild(glyphEl(g,it)); continue; }
+    }
+    frag.appendChild(document.createTextNode(tk.t||""));
+  }
+  if(!sheet.value){
+    const em=document.createElement("span");
+    em.style.opacity=".45"; em.textContent="Glyph preview appears here as you type…";
+    frag.appendChild(em);
+  }
+  pv.appendChild(frag);
+}
+let pvT;
+function refreshPreview(){ clearTimeout(pvT); pvT=setTimeout(renderPreview,120); }
+
+$("gsNew").onclick=async()=>{
+  const name=(prompt("Glyph set name","Runes")||"").trim();
+  if(!name) return;
+  const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  GS.set(id,{name,tint:false,gap:0.04,items:new Map(),sorted:[]});
+  GSedit=id;
+  saveSet(id);
+  S.fontId="g:"+id;
+  renderFonts(); renderGS(); applyState(); persist();
+  $("glyphPanel").open=true;
+};
+$("gsDel").onclick=async()=>{
+  const g=GS.get(GSedit); if(!g) return;
+  if(!confirm('Delete glyph set "'+g.name+'" and its images?')) return;
+  for(const it of g.items.values()) if(it.url) URL.revokeObjectURL(it.url);
+  await idb("glyphsets","readwrite",st=>st.delete(GSedit));
+  GS.delete(GSedit);
+  if(S.fontId==="g:"+GSedit) S.fontId="";
+  GSedit=GS.size?GS.keys().next().value:null;
+  renderFonts(); renderGS(); applyState(); persist();
+};
+$("gsSelect").onchange=e=>{ GSedit=e.target.value||null; renderGS(); };
+$("gAdd").onclick=()=>{
+  if(!$("gSeq").value.trim()){ toast("Type the letter/combo first"); return; }
+  $("gFile").click();
+};
+$("gFile").onchange=async e=>{
+  const f=e.target.files[0]; e.target.value="";
+  if(!f) return;
+  await addMapping($("gSeq").value.trim(),f);
+  $("gSeq").value="";
+  toast("Glyph mapped");
+};
+$("gBatch").onclick=()=>$("gFileBatch").click();
+$("gFileBatch").onchange=async e=>{
+  const files=[...e.target.files]; e.target.value="";
+  let n=0;
+  for(const f of files){
+    const seq=f.name.replace(/\.[^.]+$/,"").trim();
+    if(!seq) continue;
+    await addMapping(seq,f); n++;
+  }
+  toast(n+" glyphs mapped from filenames");
+};
+$("gTint").onchange=e=>{
+  const g=GS.get(GSedit); if(!g) return;
+  g.tint=e.target.checked; saveSet(GSedit); renderGS(); refreshPreview();
+};
+$("gGap").oninput=e=>{
+  const g=GS.get(GSedit); if(!g) return;
+  g.gap=+e.target.value/100;
+  $("gGapOut").textContent="."+String(e.target.value).padStart(2,"0");
+  saveSet(GSedit); refreshPreview();
+};
 
 /* ---------- apply + persist ---------- */
 function applyState(){
-  const fam=S.fontId?("'uf-"+S.fontId+"',Georgia,serif"):"Georgia,'Times New Roman',serif";
+  const fam=(S.fontId&&S.fonts.has(S.fontId))?("'uf-"+S.fontId+"',Georgia,serif"):"Georgia,'Times New Roman',serif";
   sheet.style.fontFamily=fam; titleInput.style.fontFamily=fam;
   sheet.style.fontSize=S.size+"px";
   titleInput.style.fontSize=Math.round(S.size*1.4)+"px";
   sheet.style.lineHeight=S.lead;
   frame.className="sheet-frame t-"+S.theme;
-  sheet.className="t-"+S.theme;
+  sheet.className="skin t-"+S.theme;
+  const pv=$("preview");
+  pv.className="preview skin t-"+S.theme;
+  pv.style.fontSize=S.size+"px"; pv.style.lineHeight=S.lead;
   $("sizeOut").textContent=S.size;
   $("leadOut").textContent=S.lead.toFixed(1);
   document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.theme===S.theme)));
+  renderPreview();
 }
 let persistT;
 function persist(){
@@ -365,7 +628,8 @@ $("themeChips").onclick=e=>{
   const b=e.target.closest(".chip"); if(!b) return;
   S.theme=b.dataset.theme; applyState(); persist();
 };
-sheet.oninput=persist; titleInput.oninput=persist;
+sheet.oninput=()=>{ persist(); refreshPreview(); };
+titleInput.oninput=persist;
 
 /* ---------- TXT export ---------- */
 function safeName(){
@@ -502,8 +766,10 @@ $("pdfBtn").onclick=async()=>{
     const paras=sheet.value.replace(/\r/g,"").split("\n");
 
     // decide render path: vector-embed the TTF, or draw via canvas (any font the browser can show)
+    const gsActive=activeGS();
     let fontName="times", vector=true;
-    if(S.fontId&&S.fonts.has(S.fontId)){
+    if(gsActive){ vector=false; }
+    else if(S.fontId&&S.fonts.has(S.fontId)){
       const f=S.fonts.get(S.fontId);
       if(isCFF(f.buf)){ vector=false; }
       else{
@@ -540,50 +806,111 @@ $("pdfBtn").onclick=async()=>{
         }
       }
     }else{
-      // canvas path: text rendered by the browser in the chosen font, embedded as image overlays
-      const fam='"uf-'+S.fontId+'",Georgia,serif';
+      // canvas path: browser renders text/glyph images, embedded as page images
       const k=1588/W;                          // canvas px per mm (2x A4)
       const CW=1588, CH=Math.round(H*k);
-      const px=pt*0.3528*k, titlePx=px*1.5;
+      const px=pt*0.3528*k;
       const lineHpx=lineH*k, marginPx=margin*k, maxPx=maxW*k, bottomPx=CH-margin*k;
-      await document.fonts.load(px+"px "+fam).catch(()=>{});
       const rgb=a=>"rgb("+a[0]+","+a[1]+","+a[2]+")";
+      const famFB="Georgia,serif";
+      const fam=(S.fontId&&S.fonts.has(S.fontId))?('"uf-'+S.fontId+'",Georgia,serif'):famFB;
+      if(!gsActive) await document.fonts.load(px+"px "+fam).catch(()=>{});
+      const inkCol=rgb(t.ink), titleCol=rgb(t.title);
+
       const pages=[];
       const newPage=()=>{
         const c=document.createElement("canvas"); c.width=CW; c.height=CH;
-        const x=c.getContext("2d");
-        x.textBaseline="alphabetic";
-        pages.push({c,x});
-        return x;
+        const x=c.getContext("2d"); x.textBaseline="alphabetic";
+        pages.push(c); return x;
       };
       let x=newPage(), y=marginPx+4*k;
-      const step=()=>{ if(y>bottomPx){ x=newPage(); y=marginPx+4*k; } };
+      const fresh=()=>{ if(y>bottomPx){ x=newPage(); y=marginPx+4*k; } };
+
+      function tintedImg(it,color){
+        it._tc=it._tc||{};
+        if(it._tc[color]) return it._tc[color];
+        const w=Math.max(1,it.img.naturalWidth||100), h=Math.max(1,it.img.naturalHeight||100);
+        const c=document.createElement("canvas"); c.width=w; c.height=h;
+        const cx=c.getContext("2d");
+        cx.drawImage(it.img,0,0,w,h);
+        cx.globalCompositeOperation="source-in";
+        cx.fillStyle=color; cx.fillRect(0,0,w,h);
+        it._tc[color]=c; return c;
+      }
+      function atomize(ctx,str,fpx){
+        const out=[];
+        const pushText=p=>{
+          if(!p) return;
+          if(/^\s+$/.test(p)) out.push({sp:1,w:ctx.measureText(p).width});
+          else out.push({tx:p,w:ctx.measureText(p).width});
+        };
+        if(gsActive){
+          const gapPx=(gsActive.gap||0)*fpx;
+          ctx.font=fpx+"px "+famFB;
+          for(const tk of tokenize(str,gsActive)){
+            if(tk.g!==undefined){
+              const it=gsActive.items.get(tk.g);
+              if(it){ out.push({g:it,iw:it.aspect*fpx,w:it.aspect*fpx+gapPx}); continue; }
+            }
+            for(const p of (tk.t||"").split(/(\s+)/)) pushText(p);
+          }
+        }else{
+          ctx.font=fpx+"px "+fam;
+          for(const p of str.split(/(\s+)/)) pushText(p);
+        }
+        return out;
+      }
+      function toLines(at,maxw){
+        const ls=[]; let cur=[], cw=0;
+        for(const a of at){
+          if(a.sp){
+            if(cw+a.w>maxw){ ls.push(cur); cur=[]; cw=0; }
+            else if(cur.length){ cur.push(a); cw+=a.w; }
+            continue;
+          }
+          if(cw+a.w>maxw&&cur.length){
+            while(cur.length&&cur[cur.length-1].sp){ cw-=cur.pop().w; }
+            ls.push(cur); cur=[]; cw=0;
+          }
+          cur.push(a); cw+=a.w;
+        }
+        if(cur.length||!ls.length) ls.push(cur);
+        return ls;
+      }
+      function drawLine(ctx,l,x0,yy,fpx,color,center,maxw){
+        let lw=0; for(const a of l) lw+=a.w;
+        let cx=center?x0+(maxw-lw)/2:x0;
+        ctx.font=fpx+"px "+(gsActive?famFB:fam);
+        ctx.fillStyle=color; ctx.textAlign="left";
+        for(const a of l){
+          if(a.g){
+            const src=(gsActive&&gsActive.tint)?tintedImg(a.g,color):a.g.img;
+            ctx.drawImage(src,cx,yy-fpx,a.iw,fpx);
+          }else if(a.tx){
+            ctx.fillText(a.tx,cx,yy);
+          }
+          cx+=a.w;
+        }
+      }
       if(title){
-        x.font=titlePx+"px "+fam; x.fillStyle=rgb(t.title); x.textAlign="center";
-        for(const ln of wrapCanvas(x,title,maxPx)){
-          step();
-          x.font=titlePx+"px "+fam; x.fillStyle=rgb(t.title); x.textAlign="center";
-          x.fillText(ln,CW/2,y);
-          y+=lineHpx*1.5;
+        const tpx=px*1.5;
+        for(const l of toLines(atomize(x,title,tpx),maxPx)){
+          fresh(); drawLine(x,l,marginPx,y,tpx,titleCol,true,maxPx); y+=lineHpx*1.5;
         }
         y+=lineHpx*0.6;
       }
       for(const p of paras){
-        if(p===""){ y+=lineHpx; if(y>bottomPx){ x=newPage(); y=marginPx+4*k; } continue; }
-        x.font=px+"px "+fam; x.textAlign="left";
-        for(const ln of wrapCanvas(x,p,maxPx)){
-          step();
-          x.font=px+"px "+fam; x.fillStyle=rgb(t.ink); x.textAlign="left";
-          x.fillText(ln,marginPx,y);
-          y+=lineHpx;
+        if(p===""){ y+=lineHpx; fresh(); continue; }
+        for(const l of toLines(atomize(x,p,px),maxPx)){
+          fresh(); drawLine(x,l,marginPx,y,px,inkCol,false,maxPx); y+=lineHpx;
         }
       }
-      pages.forEach((pg,i)=>{
+      pages.forEach((c,i)=>{
         if(i>0) doc.addPage();
         paintPage();
-        doc.addImage(pg.c.toDataURL("image/png"),"PNG",0,0,W,H);
+        doc.addImage(c.toDataURL("image/png"),"PNG",0,0,W,H);
       });
-      toast("Font rendered as image (OTF) — text not selectable");
+      toast(gsActive?"Glyph script rendered":"Font rendered as image (OTF) — text not selectable");
     }
     doc.save(safeName()+".pdf");
     if(vector) toast("PDF saved");
@@ -599,17 +926,19 @@ $("pdfBtn").onclick=async()=>{
 (async function(){
   try{
     await loadFontsFromDB();
+    await loadGlyphSets();
     const doc=await kvGet("doc");
     if(doc){
       titleInput.value=doc.title||"";
       sheet.value=doc.text||"";
       S.theme=doc.theme||"parchment";
-      S.fontId=(doc.fontId&&S.fonts.has(doc.fontId))?doc.fontId:"";
+      const fid=doc.fontId||"";
+      S.fontId=(fid&&(S.fonts.has(fid)||(fid.startsWith("g:")&&GS.has(fid.slice(2)))))?fid:"";
       S.size=doc.size||20; S.lead=doc.lead||1.5;
       $("sizeRange").value=S.size; $("leadRange").value=Math.round(S.lead*10);
     }
   }catch(e){ console.warn(e); }
-  renderFonts(); applyState();
+  renderFonts(); renderGS(); applyState();
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("sw.js").catch(()=>{});
   }
