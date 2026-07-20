@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scriptorium</title>
+<meta name="description" content="Write in your own TTF fonts. Export as TXT or themed PDF scrolls.">
+<meta name="theme-color" content="#14100c">
+<link rel="manifest" href='data:application/manifest+json,{"name":"Scriptorium","short_name":"Scriptorium","start_url":".","display":"standalone","background_color":"%2314100c","theme_color":"%2314100c","description":"Write in your own fonts. Export themed PDFs.","icons":[{"src":"data:image/svg+xml,%253Csvg xmlns=%2527http://www.w3.org/2000/svg%2527 viewBox=%25270 0 100 100%2527%253E%253Crect width=%2527100%2527 height=%2527100%2527 rx=%252718%2527 fill=%2527%252314100c%2527/%253E%253Ctext x=%252750%2527 y=%252768%2527 font-size=%252758%2527 text-anchor=%2527middle%2527 fill=%2527%2523b08d3f%2527 font-family=%2527Georgia,serif%2527%253E%25E2%259C%259F%253C/text%253E%253C/svg%253E","sizes":"any","type":"image/svg+xml","purpose":"any"}]}'>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2314100c'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle' fill='%23b08d3f' font-family='Georgia,serif'%3E%E2%9C%9F%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --ink:#14100c;
+  --stone:#211c15;
+  --stone-2:#2b2419;
+  --brass:#b08d3f;
+  --brass-dim:#7d6530;
+  --bone:#d9cfba;
+  --bone-dim:#9a8f7a;
+  --blood:#8a2323;
+  --radius:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--ink);
+  background-image:radial-gradient(ellipse 120% 80% at 50% -10%, #241d13 0%, var(--ink) 60%);
+  color:var(--bone);
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:15px;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.wrap{max-width:760px;margin:0 auto;padding:0 12px 90px}
+
+header{
+  text-align:center;
+  padding:18px 0 10px;
+  border-bottom:1px solid var(--brass-dim);
+  margin-bottom:14px;
+  position:relative;
+}
+header::after{
+  content:"";
+  position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);
+  width:7px;height:7px;background:var(--brass);
+  clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);
+}
+h1{
+  font-family:'Cinzel',Georgia,serif;
+  font-weight:700;
+  font-size:clamp(20px,6vw,28px);
+  letter-spacing:.28em;
+  text-indent:.28em;
+  color:var(--brass);
+  text-transform:uppercase;
+}
+header p{color:var(--bone-dim);font-size:12px;font-style:italic;margin-top:2px}
+
+.panel{
+  background:var(--stone);
+  border:1px solid #3a3122;
+  border-radius:var(--radius);
+  padding:12px;
+  margin-bottom:12px;
+}
+.label{
+  font-family:'Cinzel',Georgia,serif;
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--brass);
+  display:block;
+  margin-bottom:8px;
+}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+select,input[type=text]{
+  background:var(--ink);
+  color:var(--bone);
+  border:1px solid #453a26;
+  border-radius:4px;
+  padding:9px 10px;
+  font-family:inherit;
+  font-size:14px;
+  min-width:0;
+}
+select{flex:1}
+select:focus,input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+
+button{
+  background:var(--stone-2);
+  color:var(--bone);
+  border:1px solid var(--brass-dim);
+  border-radius:4px;
+  padding:9px 14px;
+  font-family:'Cinzel',Georgia,serif;
+  font-size:12px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  cursor:pointer;
+}
+button:active{transform:translateY(1px)}
+button.primary{background:var(--brass);color:#1a1408;border-color:var(--brass);font-weight:700}
+button.danger{border-color:var(--blood);color:#c96b6b;padding:9px 10px}
+button:disabled{opacity:.4;cursor:not-allowed}
+
+.slider-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.slider-row span{font-size:12px;color:var(--bone-dim);min-width:74px}
+.slider-row output{font-size:12px;color:var(--bone);min-width:34px;text-align:right}
+input[type=range]{flex:1;accent-color:var(--brass);min-width:0}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  padding:7px 12px;
+  font-size:11px;
+  border-radius:20px;
+  background:var(--ink);
+  border:1px solid #453a26;
+  color:var(--bone-dim);
+}
+.chip[aria-pressed=true]{border-color:var(--brass);color:var(--brass);background:#241d10}
+
+/* the sheet — live preview of the export */
+.sheet-frame{padding:14px;background:#0d0a07;border:1px solid #3a3122;border-radius:var(--radius);box-shadow:inset 0 0 30px #000}
+#titleInput{width:100%;text-align:center;font-size:20px;border:none;background:transparent;padding:6px}
+#sheet{
+  width:100%;
+  min-height:46vh;
+  border:none;
+  resize:vertical;
+  padding:24px 18px;
+  font-size:20px;
+  line-height:1.5;
+  border-radius:2px;
+  box-shadow:0 4px 18px rgba(0,0,0,.6);
+}
+#sheet:focus{outline:none}
+
+/* live theme skins */
+.t-parchment #titleInput,.t-parchment#sheet{color:#3a2b17}
+.t-parchment#sheet{
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(120,90,40,.10), transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(100,70,30,.14), transparent 55%),
+    radial-gradient(ellipse at 50% 50%, #efe4c8, #dcc99b 90%);
+  box-shadow:0 4px 18px rgba(0,0,0,.7), inset 0 0 40px rgba(90,60,20,.25);
+}
+.t-grimdark #titleInput,.t-grimdark#sheet{color:#d8d2c4}
+.t-grimdark#sheet{
+  background:
+    radial-gradient(ellipse at 50% 0%, #262220, transparent 60%),
+    linear-gradient(#151312,#0c0b0a);
+  box-shadow:0 4px 18px rgba(0,0,0,.8), inset 0 0 0 1px #3d2020;
+}
+.t-gothic #titleInput,.t-gothic#sheet{color:#c8a659}
+.t-gothic#sheet{
+  background:
+    radial-gradient(ellipse at 50% 20%, #1c2318, transparent 65%),
+    linear-gradient(#12160f,#0a0c08);
+  box-shadow:0 4px 18px rgba(0,0,0,.8), inset 0 0 0 2px #4a3b1a, inset 0 0 0 5px #0a0c08, inset 0 0 0 6px #33290f;
+}
+.t-plain #titleInput,.t-plain#sheet{color:#111}
+.t-plain#sheet{background:#fbfaf7}
+
+.fontlist{list-style:none;margin-top:8px}
+.fontlist li{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:7px 4px;border-top:1px solid #33291a;font-size:14px;
+}
+.fontlist li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fontlist li small{color:var(--bone-dim);font-size:18px}
+.empty{color:var(--bone-dim);font-style:italic;font-size:13px;padding:6px 2px}
+
+.exportbar{
+  position:fixed;left:0;right:0;bottom:0;
+  background:rgba(13,10,7,.96);
+  border-top:1px solid var(--brass-dim);
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+  display:flex;gap:8px;justify-content:center;
+}
+.exportbar button{flex:1;max-width:220px;padding:12px}
+
+#toast{
+  position:fixed;left:50%;bottom:80px;transform:translateX(-50%);
+  background:var(--brass);color:#1a1408;padding:9px 16px;border-radius:4px;
+  font-size:13px;opacity:0;pointer-events:none;transition:opacity .3s;max-width:90vw;text-align:center;
+}
+#toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Scriptorium</h1>
+    <p>Your hand. Your fonts. Your scrolls.</p>
+  </header>
+
+  <section class="panel">
+    <span class="label">Font</span>
+    <div class="row">
+      <select id="fontSelect" aria-label="Active font">
+        <option value="">Default serif</option>
+      </select>
+      <button id="addFontBtn">+ TTF</button>
+      <input type="file" id="fontFile" accept=".ttf,.otf,font/ttf,font/otf" hidden multiple>
+    </div>
+    <ul class="fontlist" id="fontList"></ul>
+    <div class="slider-row">
+      <span>Size</span>
+      <input type="range" id="sizeRange" min="10" max="48" value="20">
+      <output id="sizeOut">20</output>
+    </div>
+    <div class="slider-row">
+      <span>Line height</span>
+      <input type="range" id="leadRange" min="10" max="26" value="15">
+      <output id="leadOut">1.5</output>
+    </div>
+  </section>
+
+  <section class="panel">
+    <span class="label">Theme</span>
+    <div class="chips" id="themeChips">
+      <button class="chip" data-theme="parchment" aria-pressed="true">Parchment</button>
+      <button class="chip" data-theme="grimdark" aria-pressed="false">Grimdark</button>
+      <button class="chip" data-theme="gothic" aria-pressed="false">Gothic</button>
+      <button class="chip" data-theme="plain" aria-pressed="false">Plain</button>
+    </div>
+  </section>
+
+  <section class="sheet-frame t-parchment" id="sheetFrame">
+    <input type="text" id="titleInput" placeholder="Title (optional)" aria-label="Document title">
+    <textarea id="sheet" class="t-parchment" placeholder="Begin your account here…" aria-label="Document body"></textarea>
+  </section>
+</div>
+
+<div class="exportbar">
+  <button id="txtBtn">Export TXT</button>
+  <button id="pdfBtn" class="primary">Export PDF</button>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ---------- state ---------- */
+const S = {
+  theme:"parchment",
+  fontId:"",          // "" = default serif
+  size:20,
+  lead:1.5,
+  fonts:new Map()     // id -> {name, buf(ArrayBuffer)}
+};
+const $ = id => document.getElementById(id);
+const sheet=$("sheet"), titleInput=$("titleInput"), frame=$("sheetFrame");
+
+function toast(msg){
+  const t=$("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2400);
+}
+
+/* ---------- IndexedDB ---------- */
+function db(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open("scriptorium",1);
+    r.onupgradeneeded=()=>{ 
+      r.result.createObjectStore("fonts",{keyPath:"id"});
+      r.result.createObjectStore("kv");
+    };
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
+}
+async function idb(store,mode,fn){
+  const d=await db();
+  return new Promise((res,rej)=>{
+    const tx=d.transaction(store,mode), st=tx.objectStore(store), out=fn(st);
+    tx.oncomplete=()=>res(out&&out.result!==undefined?out.result:undefined);
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+const kvSet=(k,v)=>idb("kv","readwrite",st=>st.put(v,k));
+const kvGet=k=>idb("kv","readonly",st=>st.get(k));
+
+/* ---------- fonts ---------- */
+async function registerFont(id,name,buf){
+  try{
+    const face=new FontFace("uf-"+id,buf);
+    await face.load();
+    document.fonts.add(face);
+  }catch(e){ console.warn("FontFace failed",e); }
+  S.fonts.set(id,{name,buf});
+}
+async function loadFontsFromDB(){
+  const rows=await idb("fonts","readonly",st=>st.getAll());
+  for(const r of (rows||[])) await registerFont(r.id,r.name,r.buf);
+}
+async function addFontFiles(files){
+  for(const f of files){
+    const buf=await f.arrayBuffer();
+    const id=(Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+    const name=f.name.replace(/\.(ttf|otf)$/i,"");
+    await idb("fonts","readwrite",st=>st.put({id,name,buf}));
+    await registerFont(id,name,buf);
+    S.fontId=id;
+  }
+  renderFonts(); applyState(); persist();
+  toast("Font added");
+}
+async function deleteFont(id){
+  await idb("fonts","readwrite",st=>st.delete(id));
+  S.fonts.delete(id);
+  if(S.fontId===id) S.fontId="";
+  renderFonts(); applyState(); persist();
+}
+function renderFonts(){
+  const sel=$("fontSelect"), list=$("fontList");
+  sel.innerHTML='<option value="">Default serif</option>';
+  list.innerHTML="";
+  if(!S.fonts.size){
+    list.innerHTML='<li class="empty">No fonts loaded yet — add a .ttf to write in it.</li>';
+  }
+  for(const [id,f] of S.fonts){
+    const o=document.createElement("option");
+    o.value=id; o.textContent=f.name; sel.appendChild(o);
+    const li=document.createElement("li");
+    const span=document.createElement("span"); span.textContent=f.name;
+    const del=document.createElement("button"); del.className="danger"; del.textContent="✕";
+    del.setAttribute("aria-label","Remove "+f.name);
+    del.onclick=()=>{ if(confirm('Remove font "'+f.name+'"?')) deleteFont(id); };
+    li.append(span,del); list.appendChild(li);
+  }
+  sel.value=S.fontId;
+}
+
+/* ---------- apply + persist ---------- */
+function applyState(){
+  const fam=S.fontId?("'uf-"+S.fontId+"',Georgia,serif"):"Georgia,'Times New Roman',serif";
+  sheet.style.fontFamily=fam; titleInput.style.fontFamily=fam;
+  sheet.style.fontSize=S.size+"px";
+  titleInput.style.fontSize=Math.round(S.size*1.4)+"px";
+  sheet.style.lineHeight=S.lead;
+  frame.className="sheet-frame t-"+S.theme;
+  sheet.className="t-"+S.theme;
+  $("sizeOut").textContent=S.size;
+  $("leadOut").textContent=S.lead.toFixed(1);
+  document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.theme===S.theme)));
+}
+let persistT;
+function persist(){
+  clearTimeout(persistT);
+  persistT=setTimeout(()=>{
+    kvSet("doc",{title:titleInput.value,text:sheet.value,theme:S.theme,fontId:S.fontId,size:S.size,lead:S.lead}).catch(()=>{});
+  },400);
+}
+
+/* ---------- events ---------- */
+$("addFontBtn").onclick=()=>$("fontFile").click();
+$("fontFile").onchange=e=>{ if(e.target.files.length) addFontFiles([...e.target.files]); e.target.value=""; };
+$("fontSelect").onchange=e=>{ S.fontId=e.target.value; applyState(); persist(); };
+$("sizeRange").oninput=e=>{ S.size=+e.target.value; applyState(); persist(); };
+$("leadRange").oninput=e=>{ S.lead=+e.target.value/10; applyState(); persist(); };
+$("themeChips").onclick=e=>{
+  const b=e.target.closest(".chip"); if(!b) return;
+  S.theme=b.dataset.theme; applyState(); persist();
+};
+sheet.oninput=persist; titleInput.oninput=persist;
+
+/* ---------- TXT export ---------- */
+function safeName(){
+  return (titleInput.value.trim()||"scriptorium").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"_")||"scriptorium";
+}
+function download(blob,filename){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+$("txtBtn").onclick=()=>{
+  const title=titleInput.value.trim();
+  const body=(title?title+"\n\n":"")+sheet.value;
+  download(new Blob([body],{type:"text/plain;charset=utf-8"}),safeName()+".txt");
+  toast("TXT saved");
+};
+
+/* ---------- PDF themes ---------- */
+const THEMES={
+  parchment:{ ink:[58,43,23], title:[74,50,20], margin:22,
+    bg(c){ // aged parchment texture
+      const x=c.getContext("2d"),W=c.width,H=c.height;
+      x.fillStyle="#e9dcbc"; x.fillRect(0,0,W,H);
+      for(let i=0;i<220;i++){ // blotches
+        const g=x.createRadialGradient(Math.random()*W,Math.random()*H,0,W/2,H/2,0);
+        x.fillStyle=`rgba(${110+Math.random()*40|0},${80+Math.random()*30|0},${30+Math.random()*20|0},${0.015+Math.random()*0.035})`;
+        const r=8+Math.random()*70, px=Math.random()*W, py=Math.random()*H;
+        x.beginPath(); x.ellipse(px,py,r,r*(0.4+Math.random()*0.8),Math.random()*Math.PI,0,7); x.fill();
+      }
+      const v=x.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.75);
+      v.addColorStop(0,"rgba(0,0,0,0)"); v.addColorStop(1,"rgba(90,55,15,0.35)");
+      x.fillStyle=v; x.fillRect(0,0,W,H);
+    },
+    frame(doc,W,H){
+      doc.setDrawColor(112,78,32); doc.setLineWidth(0.9);
+      doc.rect(10,10,W-20,H-20);
+      doc.setLineWidth(0.35); doc.rect(12.5,12.5,W-25,H-25);
+    }
+  },
+  grimdark:{ ink:[216,210,196], title:[196,60,60], margin:22,
+    bg(c){
+      const x=c.getContext("2d"),W=c.width,H=c.height;
+      const g=x.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,"#1a1715"); g.addColorStop(1,"#0b0a09");
+      x.fillStyle=g; x.fillRect(0,0,W,H);
+      for(let i=0;i<3000;i++){ // ash noise
+        x.fillStyle=`rgba(255,255,255,${Math.random()*0.03})`;
+        x.fillRect(Math.random()*W,Math.random()*H,1,1);
+      }
+      for(let i=0;i<12;i++){ // scratches
+        x.strokeStyle=`rgba(120,110,100,${0.03+Math.random()*0.05})`;
+        x.lineWidth=0.6;
+        x.beginPath();
+        const sx=Math.random()*W, sy=Math.random()*H;
+        x.moveTo(sx,sy); x.lineTo(sx+(Math.random()-0.5)*W*0.5, sy+(Math.random()-0.5)*H*0.3);
+        x.stroke();
+      }
+    },
+    frame(doc,W,H){
+      doc.setDrawColor(122,32,32); doc.setLineWidth(1.1);
+      doc.line(14,14,W-14,14); doc.line(14,H-14,W-14,H-14);
+    }
+  },
+  gothic:{ ink:[200,166,89], title:[212,182,110], margin:24,
+    bg(c){
+      const x=c.getContext("2d"),W=c.width,H=c.height;
+      const g=x.createRadialGradient(W/2,H*0.25,0,W/2,H/2,H*0.8);
+      g.addColorStop(0,"#161c11"); g.addColorStop(1,"#080a06");
+      x.fillStyle=g; x.fillRect(0,0,W,H);
+      for(let i=0;i<2000;i++){
+        x.fillStyle=`rgba(200,180,90,${Math.random()*0.02})`;
+        x.fillRect(Math.random()*W,Math.random()*H,1,1);
+      }
+    },
+    frame(doc,W,H){
+      doc.setDrawColor(74,59,26); doc.setLineWidth(1.6);
+      doc.rect(9,9,W-18,H-18);
+      doc.setDrawColor(160,132,60); doc.setLineWidth(0.4);
+      doc.rect(12,12,W-24,H-24);
+      // corner marks
+      doc.setLineWidth(1);
+      [[12,12],[W-12,12],[12,H-12],[W-12,H-12]].forEach(([cx,cy])=>{
+        doc.line(cx-3,cy,cx+3,cy); doc.line(cx,cy-3,cx,cy+3);
+      });
+    }
+  },
+  plain:{ ink:[17,17,17], title:[17,17,17], margin:20, bg:null, frame:null }
+};
+function themeBgData(name){
+  const t=THEMES[name]; if(!t.bg) return null;
+  const c=document.createElement("canvas"); c.width=794; c.height=1123; // A4 @96dpi
+  t.bg(c);
+  return c.toDataURL("image/jpeg",0.82);
+}
+function bufToB64(buf){
+  const u=new Uint8Array(buf); let s="";
+  for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));
+  return btoa(s);
+}
+
+/* ---------- PDF export ---------- */
+$("pdfBtn").onclick=async()=>{
+  const btn=$("pdfBtn");
+  btn.disabled=true; btn.textContent="Binding…";
+  try{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:"mm",format:"a4"});
+    const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+    const t=THEMES[S.theme];
+    let fontName="times", fontStyle="normal";
+    if(S.fontId&&S.fonts.has(S.fontId)){
+      const f=S.fonts.get(S.fontId);
+      doc.addFileToVFS("user.ttf",bufToB64(f.buf));
+      doc.addFont("user.ttf","UserFont","normal");
+      fontName="UserFont";
+    }
+    const bg=themeBgData(S.theme);
+    const paintPage=()=>{
+      if(bg) doc.addImage(bg,"JPEG",0,0,W,H,undefined,"FAST");
+      if(t.frame) t.frame(doc,W,H);
+    };
+    paintPage();
+
+    const margin=t.margin, maxW=W-margin*2, bottom=H-margin;
+    const pt=S.size*0.75*1.1;                 // px→pt, nudged for print
+    const lineH=pt*S.lead*0.3528;             // pt→mm
+    let y=margin+4;
+
+    doc.setFont(fontName,fontStyle);
+    const title=titleInput.value.trim();
+    if(title){
+      doc.setFontSize(pt*1.5);
+      doc.setTextColor(...t.title);
+      const tl=doc.splitTextToSize(title,maxW);
+      for(const ln of tl){
+        if(y>bottom){ doc.addPage(); paintPage(); y=margin+4; }
+        doc.text(ln,W/2,y,{align:"center"});
+        y+=lineH*1.5;
+      }
+      y+=lineH*0.6;
+    }
+    doc.setFontSize(pt);
+    doc.setTextColor(...t.ink);
+    const paras=sheet.value.replace(/\r/g,"").split("\n");
+    for(const p of paras){
+      if(p===""){ y+=lineH; if(y>bottom){ doc.addPage(); paintPage(); y=margin+4; } continue; }
+      const lines=doc.splitTextToSize(p,maxW);
+      for(const ln of lines){
+        if(y>bottom){ doc.addPage(); paintPage(); y=margin+4; }
+        doc.text(ln,margin,y);
+        y+=lineH;
+      }
+    }
+    doc.save(safeName()+".pdf");
+    toast("PDF saved");
+  }catch(e){
+    console.error(e);
+    toast("PDF failed: "+(e.message||e));
+  }finally{
+    btn.disabled=false; btn.textContent="Export PDF";
+  }
+};
+
+/* ---------- boot ---------- */
+(async function(){
+  try{
+    await loadFontsFromDB();
+    const doc=await kvGet("doc");
+    if(doc){
+      titleInput.value=doc.title||"";
+      sheet.value=doc.text||"";
+      S.theme=doc.theme||"parchment";
+      S.fontId=(doc.fontId&&S.fonts.has(doc.fontId))?doc.fontId:"";
+      S.size=doc.size||20; S.lead=doc.lead||1.5;
+      $("sizeRange").value=S.size; $("leadRange").value=Math.round(S.lead*10);
+    }
+  }catch(e){ console.warn(e); }
+  renderFonts(); applyState();
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
