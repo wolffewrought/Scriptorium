@@ -468,6 +468,20 @@ function bufToB64(buf){
 }
 
 /* ---------- PDF export ---------- */
+function isCFF(buf){ // 'OTTO' = CFF outlines; jsPDF can't embed these as vectors
+  try{ return new DataView(buf).getUint32(0)===0x4F54544F; }catch(e){ return false; }
+}
+function wrapCanvas(ctx,text,maxPx){
+  const words=text.split(/\s+/).filter(Boolean);
+  const lines=[]; let cur="";
+  for(const w of words){
+    const test=cur?cur+" "+w:w;
+    if(ctx.measureText(test).width<=maxPx||!cur) cur=test;
+    else{ lines.push(cur); cur=w; }
+  }
+  if(cur) lines.push(cur);
+  return lines.length?lines:[""];
+}
 $("pdfBtn").onclick=async()=>{
   const btn=$("pdfBtn");
   btn.disabled=true; btn.textContent="Binding…";
@@ -476,52 +490,103 @@ $("pdfBtn").onclick=async()=>{
     const doc=new jsPDF({unit:"mm",format:"a4"});
     const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
     const t=THEMES[S.theme];
-    let fontName="times", fontStyle="normal";
-    if(S.fontId&&S.fonts.has(S.fontId)){
-      const f=S.fonts.get(S.fontId);
-      doc.addFileToVFS("user.ttf",bufToB64(f.buf));
-      doc.addFont("user.ttf","UserFont","normal");
-      fontName="UserFont";
-    }
     const bg=themeBgData(S.theme);
     const paintPage=()=>{
       if(bg) doc.addImage(bg,"JPEG",0,0,W,H,undefined,"FAST");
       if(t.frame) t.frame(doc,W,H);
     };
-    paintPage();
-
     const margin=t.margin, maxW=W-margin*2, bottom=H-margin;
     const pt=S.size*0.75*1.1;                 // px→pt, nudged for print
     const lineH=pt*S.lead*0.3528;             // pt→mm
-    let y=margin+4;
-
-    doc.setFont(fontName,fontStyle);
     const title=titleInput.value.trim();
-    if(title){
-      doc.setFontSize(pt*1.5);
-      doc.setTextColor(...t.title);
-      const tl=doc.splitTextToSize(title,maxW);
-      for(const ln of tl){
-        if(y>bottom){ doc.addPage(); paintPage(); y=margin+4; }
-        doc.text(ln,W/2,y,{align:"center"});
-        y+=lineH*1.5;
-      }
-      y+=lineH*0.6;
-    }
-    doc.setFontSize(pt);
-    doc.setTextColor(...t.ink);
     const paras=sheet.value.replace(/\r/g,"").split("\n");
-    for(const p of paras){
-      if(p===""){ y+=lineH; if(y>bottom){ doc.addPage(); paintPage(); y=margin+4; } continue; }
-      const lines=doc.splitTextToSize(p,maxW);
-      for(const ln of lines){
-        if(y>bottom){ doc.addPage(); paintPage(); y=margin+4; }
-        doc.text(ln,margin,y);
-        y+=lineH;
+
+    // decide render path: vector-embed the TTF, or draw via canvas (any font the browser can show)
+    let fontName="times", vector=true;
+    if(S.fontId&&S.fonts.has(S.fontId)){
+      const f=S.fonts.get(S.fontId);
+      if(isCFF(f.buf)){ vector=false; }
+      else{
+        try{
+          doc.addFileToVFS("user.ttf",bufToB64(f.buf));
+          doc.addFont("user.ttf","UserFont","normal");
+          fontName="UserFont";
+        }catch(e){ console.warn("embed failed, using canvas",e); vector=false; }
       }
+    }
+
+    if(vector){
+      paintPage();
+      let y=margin+4;
+      doc.setFont(fontName,"normal");
+      if(title){
+        doc.setFontSize(pt*1.5);
+        doc.setTextColor(...t.title);
+        for(const ln of doc.splitTextToSize(title,maxW)){
+          if(y>bottom){ doc.addPage(); paintPage(); y=margin+4; }
+          doc.text(ln,W/2,y,{align:"center"});
+          y+=lineH*1.5;
+        }
+        y+=lineH*0.6;
+      }
+      doc.setFontSize(pt);
+      doc.setTextColor(...t.ink);
+      for(const p of paras){
+        if(p===""){ y+=lineH; if(y>bottom){ doc.addPage(); paintPage(); y=margin+4; } continue; }
+        for(const ln of doc.splitTextToSize(p,maxW)){
+          if(y>bottom){ doc.addPage(); paintPage(); y=margin+4; }
+          doc.text(ln,margin,y);
+          y+=lineH;
+        }
+      }
+    }else{
+      // canvas path: text rendered by the browser in the chosen font, embedded as image overlays
+      const fam='"uf-'+S.fontId+'",Georgia,serif';
+      const k=1588/W;                          // canvas px per mm (2x A4)
+      const CW=1588, CH=Math.round(H*k);
+      const px=pt*0.3528*k, titlePx=px*1.5;
+      const lineHpx=lineH*k, marginPx=margin*k, maxPx=maxW*k, bottomPx=CH-margin*k;
+      await document.fonts.load(px+"px "+fam).catch(()=>{});
+      const rgb=a=>"rgb("+a[0]+","+a[1]+","+a[2]+")";
+      const pages=[];
+      const newPage=()=>{
+        const c=document.createElement("canvas"); c.width=CW; c.height=CH;
+        const x=c.getContext("2d");
+        x.textBaseline="alphabetic";
+        pages.push({c,x});
+        return x;
+      };
+      let x=newPage(), y=marginPx+4*k;
+      const step=()=>{ if(y>bottomPx){ x=newPage(); y=marginPx+4*k; } };
+      if(title){
+        x.font=titlePx+"px "+fam; x.fillStyle=rgb(t.title); x.textAlign="center";
+        for(const ln of wrapCanvas(x,title,maxPx)){
+          step();
+          x.font=titlePx+"px "+fam; x.fillStyle=rgb(t.title); x.textAlign="center";
+          x.fillText(ln,CW/2,y);
+          y+=lineHpx*1.5;
+        }
+        y+=lineHpx*0.6;
+      }
+      for(const p of paras){
+        if(p===""){ y+=lineHpx; if(y>bottomPx){ x=newPage(); y=marginPx+4*k; } continue; }
+        x.font=px+"px "+fam; x.textAlign="left";
+        for(const ln of wrapCanvas(x,p,maxPx)){
+          step();
+          x.font=px+"px "+fam; x.fillStyle=rgb(t.ink); x.textAlign="left";
+          x.fillText(ln,marginPx,y);
+          y+=lineHpx;
+        }
+      }
+      pages.forEach((pg,i)=>{
+        if(i>0) doc.addPage();
+        paintPage();
+        doc.addImage(pg.c.toDataURL("image/png"),"PNG",0,0,W,H);
+      });
+      toast("Font rendered as image (OTF) — text not selectable");
     }
     doc.save(safeName()+".pdf");
-    toast("PDF saved");
+    if(vector) toast("PDF saved");
   }catch(e){
     console.error(e);
     toast("PDF failed: "+(e.message||e));
