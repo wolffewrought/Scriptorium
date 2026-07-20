@@ -1,17 +1,14 @@
-const CACHE = "scriptorium-v1";
+const CACHE = "scriptorium-v2";
 const CORE = [
   "./",
   "./index.html",
   "./sw.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
-  "https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap"
+  "./jspdf.umd.min.js"
 ];
 
 self.addEventListener("install", e => {
   e.waitUntil(
-    caches.open(CACHE).then(c =>
-      Promise.allSettled(CORE.map(u => c.add(u)))
-    ).then(() => self.skipWaiting())
+    caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())
   );
 });
 
@@ -26,16 +23,14 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request, { ignoreSearch: false }).then(hit => {
-      if (hit) return hit;
-      return fetch(e.request).then(res => {
-        // cache successful basic/cors responses (includes Google Fonts woff2 files)
-        if (res && (res.status === 200 || res.type === "opaque")) {
+    caches.match(e.request).then(hit =>
+      hit || fetch(e.request).then(res => {
+        if (res && res.status === 200) {
           const copy = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
         }
         return res;
-      }).catch(() => caches.match("./index.html"));
-    })
+      }).catch(() => caches.match("./index.html"))
+    )
   );
 });
