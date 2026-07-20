@@ -750,6 +750,15 @@ $("importPdf").onchange=async e=>{
     toast("Couldn't read that PDF: "+(err.message||err));
   }
 };
+/* ---- ornamental border helpers (crisp vector, print-scalable) ---- */
+function _arcU(cx,cy,R,a0,a1,n){const p=[];for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;p.push([cx+R*Math.cos(a),cy-R*Math.sin(a)]);}return p;}
+function _poly(doc,p){for(let i=0;i<p.length-1;i++)doc.line(p[i][0],p[i][1],p[i+1][0],p[i+1][1]);}
+function _bead(doc,x1,y1,x2,y2,gap,r){const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy),n=Math.max(1,Math.round(L/gap));for(let i=0;i<=n;i++)doc.circle(x1+dx*i/n,y1+dy*i/n,r,"F");}
+function _diamond(doc,cx,cy,s,style){doc.triangle(cx,cy-s,cx+s,cy,cx,cy+s,style);doc.triangle(cx,cy-s,cx-s,cy,cx,cy+s,style);}
+function _spiral(doc,cx,cy,r0,r1,a0,turns,n){const a1=a0+turns*2*Math.PI,p=[];for(let i=0;i<=n;i++){const t=i/n,a=a0+(a1-a0)*t,R=r0+(r1-r0)*t;p.push([cx+R*Math.cos(a),cy-R*Math.sin(a)]);}_poly(doc,p);}
+function _arch(doc,x,y,w,riseK){const R=w,n=12,f=p=>p.map(q=>[q[0],y+(q[1]-y)*riseK]);_poly(doc,f(_arcU(x+w,y,R,Math.PI,Math.PI*2/3,n)));_poly(doc,f(_arcU(x,y,R,Math.PI/3,0,n)));}
+function _bolt(doc,x,y,r,dark,light){doc.setFillColor(dark[0],dark[1],dark[2]);doc.circle(x,y,r,"F");doc.setFillColor(light[0],light[1],light[2]);doc.circle(x-r*0.28,y-r*0.28,r*0.4,"F");}
+
 const THEMES={
   parchment:{ ink:[58,43,23], title:[74,50,20], margin:22,
     bg(c){ // aged parchment texture
@@ -766,9 +775,35 @@ const THEMES={
       x.fillStyle=v; x.fillRect(0,0,W,H);
     },
     frame(doc,W,H){
-      doc.setDrawColor(112,78,32); doc.setLineWidth(0.9);
-      doc.rect(10,10,W-20,H-20);
-      doc.setLineWidth(0.35); doc.rect(12.5,12.5,W-25,H-25);
+      const brown=[112,78,32], deep=[90,60,20], gold=[150,120,55];
+      doc.setLineJoin("round"); doc.setLineCap("round");
+      doc.setDrawColor(...brown); doc.setLineWidth(0.9); doc.rect(10,10,W-20,H-20);
+      doc.setLineWidth(0.3); doc.rect(12.5,12.5,W-25,H-25);
+      const midX=W/2, midY=H/2;
+      // beadwork along inner rule between ornaments
+      doc.setFillColor(...brown);
+      _bead(doc,24,11.2,midX-8,11.2,8,0.42); _bead(doc,midX+8,11.2,W-24,11.2,8,0.42);
+      _bead(doc,24,H-11.2,midX-8,H-11.2,8,0.42); _bead(doc,midX+8,H-11.2,W-24,H-11.2,8,0.42);
+      _bead(doc,11.2,24,11.2,midY-8,8,0.42); _bead(doc,11.2,midY+8,11.2,H-24,8,0.42);
+      _bead(doc,W-11.2,24,W-11.2,midY-8,8,0.42); _bead(doc,W-11.2,midY+8,W-11.2,H-24,8,0.42);
+      // corner scrolls + bosses
+      const cs=[[12.5,12.5,1,1],[W-12.5,12.5,-1,1],[12.5,H-12.5,1,-1],[W-12.5,H-12.5,-1,-1]];
+      cs.forEach(([cx,cy,sx,sy])=>{
+        doc.setDrawColor(...brown); doc.setLineWidth(0.5);
+        _spiral(doc, cx+sx*8, cy+sy*8, 4.6, 0.6, Math.atan2(-sy,-sx), 0.8, 44);
+        doc.setFillColor(...deep); doc.circle(cx+sx*8, cy+sy*8, 0.8, "F");
+        doc.setDrawColor(...gold); doc.setLineWidth(0.4);
+        doc.line(cx+sx*2, cy, cx+sx*6.5, cy); doc.line(cx, cy+sy*2, cx, cy+sy*6.5);
+        doc.setFillColor(...gold); _diamond(doc, cx+sx*3.2, cy+sy*3.2, 1.3, "F");
+      });
+      // midside fleurons
+      doc.setFillColor(...deep);
+      _diamond(doc,midX,11.2,2,"F"); _diamond(doc,midX,H-11.2,2,"F");
+      _diamond(doc,11.2,midY,2,"F"); _diamond(doc,W-11.2,midY,2,"F");
+      doc.setFillColor(...gold);
+      [[midX-4.5,11.2],[midX+4.5,11.2],[midX-4.5,H-11.2],[midX+4.5,H-11.2]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
+      [[11.2,midY-4.5],[11.2,midY+4.5],[W-11.2,midY-4.5],[W-11.2,midY+4.5]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
+      doc.setLineCap("butt"); doc.setLineJoin("miter");
     }
   },
   grimdark:{ ink:[216,210,196], title:[196,60,60], margin:22,
@@ -791,8 +826,34 @@ const THEMES={
       }
     },
     frame(doc,W,H){
-      doc.setDrawColor(122,32,32); doc.setLineWidth(1.1);
-      doc.line(14,14,W-14,14); doc.line(14,H-14,W-14,H-14);
+      const steel=[86,80,70], dark=[38,35,31], blood=[128,34,34], bone=[150,140,126];
+      doc.setLineCap("butt"); doc.setLineJoin("miter");
+      const cxm=W/2;
+      // heavy top & bottom bars + thin secondary rules
+      doc.setDrawColor(...steel);
+      doc.setLineWidth(1.6); doc.line(12,13,W-12,13); doc.line(12,H-13,W-12,H-13);
+      doc.setLineWidth(0.5); doc.line(12,15.6,W-12,15.6); doc.line(12,H-15.6,W-12,H-15.6);
+      doc.setLineWidth(0.8); doc.line(13,13,13,H-13); doc.line(W-13,13,W-13,H-13);
+      // oxblood accent rails
+      doc.setDrawColor(...blood); doc.setLineWidth(0.7);
+      doc.line(32,18,W-32,18); doc.line(32,H-18,W-32,H-18);
+      // reticle corner brackets
+      doc.setDrawColor(...bone); doc.setLineWidth(1.1);
+      const L=26,o=13;
+      doc.line(o,o,o+L,o); doc.line(o,o,o,o+L);
+      doc.line(W-o,o,W-o-L,o); doc.line(W-o,o,W-o,o+L);
+      doc.line(o,H-o,o+L,H-o); doc.line(o,H-o,o,H-o-L);
+      doc.line(W-o,H-o,W-o-L,H-o); doc.line(W-o,H-o,W-o,H-o-L);
+      // rivets across bars
+      const n=8;
+      for(let i=0;i<=n;i++){ const x=32+(W-64)*i/n; _bolt(doc,x,13,1.5,dark,bone); _bolt(doc,x,H-13,1.5,dark,bone); }
+      [[o,o],[W-o,o],[o,H-o],[W-o,H-o]].forEach(([x,y])=>_bolt(doc,x,y,1.9,dark,bone));
+      _bolt(doc,13,H/2,1.5,dark,bone); _bolt(doc,W-13,H/2,1.5,dark,bone);
+      // hazard chevrons + core diamonds
+      doc.setDrawColor(...blood); doc.setLineWidth(1.2);
+      doc.line(cxm-5,19.5,cxm,23.5); doc.line(cxm,23.5,cxm+5,19.5);
+      doc.line(cxm-5,H-19.5,cxm,H-23.5); doc.line(cxm,H-23.5,cxm+5,H-19.5);
+      doc.setFillColor(...blood); _diamond(doc,cxm,13,2.2,"F"); _diamond(doc,cxm,H-13,2.2,"F");
     }
   },
   gothic:{ ink:[200,166,89], title:[212,182,110], margin:24,
@@ -807,15 +868,38 @@ const THEMES={
       }
     },
     frame(doc,W,H){
-      doc.setDrawColor(74,59,26); doc.setLineWidth(1.6);
-      doc.rect(9,9,W-18,H-18);
-      doc.setDrawColor(160,132,60); doc.setLineWidth(0.4);
-      doc.rect(12,12,W-24,H-24);
-      // corner marks
-      doc.setLineWidth(1);
-      [[12,12],[W-12,12],[12,H-12],[W-12,H-12]].forEach(([cx,cy])=>{
-        doc.line(cx-3,cy,cx+3,cy); doc.line(cx,cy-3,cx,cy+3);
+      const gold=[160,132,60], bright=[205,170,95], dark=[70,56,24];
+      doc.setLineJoin("round"); doc.setLineCap("round");
+      const midY=H/2;
+      doc.setDrawColor(...dark); doc.setLineWidth(1.8); doc.rect(9,9,W-18,H-18);
+      doc.setDrawColor(...gold); doc.setLineWidth(0.7); doc.rect(11.5,11.5,W-23,H-23);
+      doc.setLineWidth(0.3); doc.rect(13.5,13.5,W-27,H-27);
+      // beadwork along the gold rule
+      doc.setFillColor(...gold);
+      _bead(doc,11.5,11.5,W-11.5,11.5,6,0.5); _bead(doc,11.5,H-11.5,W-11.5,H-11.5,6,0.5);
+      _bead(doc,11.5,11.5,11.5,H-11.5,6,0.5); _bead(doc,W-11.5,11.5,W-11.5,H-11.5,6,0.5);
+      // corner quatrefoil rosettes
+      [[11.5,11.5],[W-11.5,11.5],[11.5,H-11.5],[W-11.5,H-11.5]].forEach(([cx,cy])=>{
+        doc.setFillColor(...bright); doc.circle(cx,cy,1.7,"F");
+        doc.setFillColor(...gold);
+        [[2.7,0],[-2.7,0],[0,2.7],[0,-2.7]].forEach(([dx,dy])=>doc.circle(cx+dx,cy+dy,1.1,"F"));
+        doc.setFillColor(...dark); doc.circle(cx,cy,0.65,"F");
       });
+      // cathedral arch rows top & bottom
+      doc.setDrawColor(...gold); doc.setLineWidth(0.5);
+      const inset=22, cells=9, cw=(W-2*inset)/cells, aw=cw*0.86;
+      for(let i=0;i<cells;i++){
+        const x=inset+i*cw+(cw-aw)/2;
+        _arch(doc,x,21,aw,0.5); _arch(doc,x,H-21,aw,-0.5);
+        doc.setFillColor(...bright);
+        doc.circle(x+aw/2,21-0.866*aw*0.5,0.6,"F"); doc.circle(x+aw/2,H-21+0.866*aw*0.5,0.6,"F");
+      }
+      // side fleurs
+      doc.setFillColor(...gold);
+      _diamond(doc,11.5,midY,2.1,"F"); _diamond(doc,W-11.5,midY,2.1,"F");
+      doc.setFillColor(...bright);
+      [[11.5,midY-5],[11.5,midY+5],[W-11.5,midY-5],[W-11.5,midY+5]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
+      doc.setLineCap("butt"); doc.setLineJoin("miter");
     }
   },
   plain:{ ink:[17,17,17], title:[17,17,17], margin:20, bg:null, frame:null }
