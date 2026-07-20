@@ -278,9 +278,11 @@ details.panel[open] summary{margin-bottom:10px}
 </div>
 
 <div class="exportbar">
-  <button id="txtBtn">Export TXT</button>
-  <button id="pdfBtn" class="primary">Export PDF</button>
+  <button id="importBtn" title="Reverse a Scriptorium PDF back to plain text">Open</button>
+  <button id="txtBtn">TXT</button>
+  <button id="pdfBtn" class="primary">PDF</button>
 </div>
+<input type="file" id="importPdf" accept="application/pdf,.pdf" hidden>
 <div id="toast" role="status"></div>
 
 <script>
@@ -648,7 +650,33 @@ $("txtBtn").onclick=()=>{
   toast("TXT saved");
 };
 
-/* ---------- PDF themes ---------- */
+/* ---------- import / reverse a Scriptorium PDF ---------- */
+$("importBtn").onclick=()=>$("importPdf").click();
+$("importPdf").onchange=async e=>{
+  const f=e.target.files[0]; e.target.value="";
+  if(!f) return;
+  try{
+    const u=new Uint8Array(await f.arrayBuffer());
+    let s="";
+    for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));
+    const m=s.match(/%%SCRIPTORIUM:([A-Za-z0-9+/=]+):END%%/);
+    if(!m){
+      toast("No embedded text — not a Scriptorium PDF, or it was re-saved by another app");
+      return;
+    }
+    const data=JSON.parse(b64ToText(m[1]));
+    if(sheet.value.trim() && !confirm("Replace current text with the scroll's contents?")) return;
+    titleInput.value=data.title||"";
+    sheet.value=data.text||"";
+    if(data.theme) S.theme=data.theme;
+    S.fontId="";                       // reverse to standard serif
+    renderFonts(); applyState(); persist(); refreshPreview();
+    toast("Loaded as standard text"+(data.font?" — was "+data.font:""));
+  }catch(err){
+    console.error(err);
+    toast("Couldn't read that PDF: "+(err.message||err));
+  }
+};
 const THEMES={
   parchment:{ ink:[58,43,23], title:[74,50,20], margin:22,
     bg(c){ // aged parchment texture
@@ -729,6 +757,11 @@ function bufToB64(buf){
   const u=new Uint8Array(buf); let s="";
   for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));
   return btoa(s);
+}
+function b64ToText(b64){
+  const bin=atob(b64), u=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+  return new TextDecoder().decode(u);
 }
 
 /* ---------- PDF export ---------- */
@@ -912,13 +945,24 @@ $("pdfBtn").onclick=async()=>{
       });
       toast(gsActive?"Glyph script rendered":"Font rendered as image (OTF) — text not selectable");
     }
-    doc.save(safeName()+".pdf");
+    // embed original text invisibly so the app can reverse it later
+    let fontLabel="Default serif";
+    if(gsActive) fontLabel="glyphs: "+GS.get(S.fontId.slice(2)).name;
+    else if(S.fontId&&S.fonts.has(S.fontId)) fontLabel=S.fonts.get(S.fontId).name;
+    const meta={v:1,title:titleInput.value,text:sheet.value,font:fontLabel,theme:S.theme,at:new Date().toISOString()};
+    const b64=bufToB64(new TextEncoder().encode(JSON.stringify(meta)).buffer);
+    const pdfBuf=doc.output("arraybuffer");
+    const mk=new TextEncoder().encode("\n%%SCRIPTORIUM:"+b64+":END%%\n");
+    const outArr=new Uint8Array(pdfBuf.byteLength+mk.length);
+    outArr.set(new Uint8Array(pdfBuf),0);
+    outArr.set(mk,pdfBuf.byteLength);
+    download(new Blob([outArr],{type:"application/pdf"}),safeName()+".pdf");
     if(vector) toast("PDF saved");
   }catch(e){
     console.error(e);
     toast("PDF failed: "+(e.message||e));
   }finally{
-    btn.disabled=false; btn.textContent="Export PDF";
+    btn.disabled=false; btn.textContent="PDF";
   }
 };
 
