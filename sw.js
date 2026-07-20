@@ -1,9 +1,14 @@
-const CACHE = "scriptorium-v6";
+const CACHE = "scriptorium-v7";
 const CORE = [
   "./",
   "./index.html",
   "./sw.js",
-  "./jspdf.umd.min.js"
+  "./jspdf.umd.min.js",
+  "./manifest.webmanifest",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./icon-512-maskable.png",
+  "./apple-touch-icon.png"
 ];
 
 self.addEventListener("install", e => {
