@@ -246,6 +246,10 @@ details.panel[open] summary{margin-bottom:10px}
       <button id="gAdd">+ Img</button>
       <button id="gBatch">Batch</button>
     </div>
+    <div class="row" style="margin-top:8px">
+      <button id="gImport" style="flex:1">⟐ Import SVG Font (from Glyphr)</button>
+    </div>
+    <input type="file" id="gFont" accept=".svg,.gs2,.txt,image/svg+xml" hidden>
     <label class="row" style="margin-top:10px;font-size:13px;gap:6px">
       <input type="checkbox" id="gTint"> Tint glyphs to theme ink
     </label>
@@ -484,7 +488,7 @@ function renderGS(){
   $("gGap").value=g?Math.round((g.gap||0)*100):4;
   $("gGapOut").textContent="."+String($("gGap").value).padStart(2,"0");
   const dis=!g;
-  ["gSeq","gAdd","gBatch","gTint","gGap","gsDel"].forEach(i=>$(i).disabled=dis);
+  ["gSeq","gAdd","gBatch","gImport","gTint","gGap","gsDel"].forEach(i=>$(i).disabled=dis);
   grid.innerHTML="";
   if(!g) return;
   if(!g.items.size){
@@ -583,6 +587,75 @@ $("gFileBatch").onchange=async e=>{
     await addMapping(seq,f); n++;
   }
   toast(n+" glyphs mapped from filenames");
+};
+
+/* ---- import a Glyphr SVG Font: every outline -> image glyph, ligatures -> combos ---- */
+const SVGNS="http://www.w3.org/2000/svg";
+function fontGlyphToSvgBlob(measurePath,d){
+  measurePath.setAttribute("d",d);
+  let bb; try{ bb=measurePath.getBBox(); }catch(e){ return null; }
+  if(!(bb.width>0&&bb.height>0)) return null;          // space / empty outline
+  const pad=Math.max(bb.width,bb.height)*0.06;
+  const minX=bb.x-pad, w=bb.width+pad*2, h=bb.height+pad*2;
+  const maxY=bb.y+bb.height+pad;
+  const svg=document.createElementNS(SVGNS,"svg");
+  svg.setAttribute("xmlns",SVGNS);
+  svg.setAttribute("width",w.toFixed(2));
+  svg.setAttribute("height",h.toFixed(2));
+  svg.setAttribute("viewBox",minX.toFixed(2)+" "+(-maxY).toFixed(2)+" "+w.toFixed(2)+" "+h.toFixed(2));
+  const g=document.createElementNS(SVGNS,"g");
+  g.setAttribute("transform","scale(1,-1)");            // font y-up -> screen y-down
+  const p=document.createElementNS(SVGNS,"path");
+  p.setAttribute("d",d); p.setAttribute("fill","#000");
+  g.appendChild(p); svg.appendChild(g);
+  return new Blob([new XMLSerializer().serializeToString(svg)],{type:"image/svg+xml"});
+}
+async function importSvgFont(text){
+  let xdoc;
+  try{ xdoc=new DOMParser().parseFromString(text,"image/svg+xml"); }catch(e){ toast("Couldn't parse the SVG"); return; }
+  const glyphs=xdoc.getElementsByTagName("glyph");
+  if(!glyphs.length){ toast("No <glyph> elements found — export as SVG Font from Glyphr (not OTF/TTF)"); return; }
+  const g=GS.get(GSedit); if(!g) return;
+  const meas=document.createElementNS(SVGNS,"svg");
+  meas.setAttribute("style","position:absolute;left:-9999px;top:-9999px;width:10px;height:10px;overflow:hidden");
+  const mp=document.createElementNS(SVGNS,"path");
+  meas.appendChild(mp); document.body.appendChild(meas);
+  let added=0,collide=0,skipped=0;
+  for(const gl of glyphs){
+    const uni=gl.getAttribute("unicode");
+    const d=gl.getAttribute("d");
+    if(!uni||!d||!d.trim()){ skipped++; continue; }
+    const blob=fontGlyphToSvgBlob(mp,d);
+    if(!blob){ skipped++; continue; }
+    const key=uni.toLowerCase();
+    if(g.items.has(key)){ collide++; const o=g.items.get(key); if(o.url) URL.revokeObjectURL(o.url); }
+    const item={seq:uni,blob};
+    await hydrateItem(item);
+    g.items.set(key,item);
+    added++;
+  }
+  document.body.removeChild(meas);
+  if(added) g.tint=true;                                // font glyphs are black silhouettes -> tint to theme ink
+  rebuildSorted(g); saveSet(GSedit);
+  S.fontId="g:"+GSedit;
+  renderFonts(); renderGS(); applyState(); persist();
+  toast("Imported "+added+" glyph"+(added===1?"":"s")+(collide?", "+collide+" replaced":"")+(skipped?", "+skipped+" skipped":""));
+}
+$("gImport").onclick=()=>{ if(!GSedit){ toast("Make or pick a set first"); return; } $("gFont").click(); };
+$("gFont").onchange=async e=>{
+  const f=e.target.files[0]; e.target.value="";
+  if(!f) return;
+  const btn=$("gImport"); const label=btn.textContent;
+  btn.disabled=true; btn.textContent="Importing…";
+  try{
+    const text=await f.text();
+    if(/^\s*[\{\[]/.test(text)){
+      toast("That's a Glyphr project (.gs2). In Glyphr: Export → SVG Font, then import that file here.");
+    }else{
+      await importSvgFont(text);
+    }
+  }catch(err){ console.error(err); toast("Import failed: "+(err.message||err)); }
+  finally{ btn.disabled=false; btn.textContent=label; }
 };
 $("gTint").onchange=e=>{
   const g=GS.get(GSedit); if(!g) return;
