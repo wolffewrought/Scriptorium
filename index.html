@@ -1209,7 +1209,9 @@ $("pdfBtn").onclick=async()=>{
         let lw=0; for(const a of line) lw+=a.w;
         let cx=center?x0+(maxw-lw)/2:x0;
         ctx.textAlign="left";
+        const pos=[];
         for(const a of line){
+          pos.push(cx);
           const st=a.st||{};
           if(a.g){
             const src=(gsActive&&gsActive.tint)?tintedImg(a.g,color):a.g.img;
@@ -1217,13 +1219,24 @@ $("pdfBtn").onclick=async()=>{
           }else if(a.tx){
             ctx.font=fontStr(st,fpx); ctx.fillStyle=color; ctx.fillText(a.tx,cx,yy);
           }
-          if((st.u||st.s)&&!a.sp){
-            ctx.strokeStyle=color; ctx.lineWidth=Math.max(1,fpx*0.055);
-            if(st.u){ const uy=yy+fpx*0.12; ctx.beginPath(); ctx.moveTo(cx,uy); ctx.lineTo(cx+a.w,uy); ctx.stroke(); }
-            if(st.s){ const sy=yy-fpx*0.30; ctx.beginPath(); ctx.moveTo(cx,sy); ctx.lineTo(cx+a.w,sy); ctx.stroke(); }
-          }
           cx+=a.w;
         }
+        // continuous underline / strikethrough across each styled span
+        ctx.strokeStyle=color; ctx.lineWidth=Math.max(1,fpx*0.05);
+        const decorate=key=>{
+          let i=0;
+          while(i<line.length){
+            if(!line[i].sp && line[i].st && line[i].st[key]){
+              const start=pos[i]; let end=pos[i]+line[i].w, j=i+1, glyph=!!line[i].g;
+              while(j<line.length && line[j].st && line[j].st[key]){ if(line[j].g) glyph=true; end=pos[j]+line[j].w; j++; }
+              const inset=fpx*0.05;
+              const dy = key==="u" ? fpx*0.15 : (glyph ? -fpx*0.45 : -fpx*0.28);
+              ctx.beginPath(); ctx.moveTo(start+inset,yy+dy); ctx.lineTo(Math.max(start+inset,end-inset),yy+dy); ctx.stroke();
+              i=j;
+            } else i++;
+          }
+        };
+        decorate("u"); decorate("s");
       }
       // title (inline-styled, centered)
       if(title){
