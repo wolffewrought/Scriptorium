@@ -58,6 +58,7 @@ h1{
   text-transform:uppercase;
 }
 header p{color:var(--bone-dim);font-size:12px;font-style:italic;margin-top:2px}
+#installBtn{margin-top:9px;background:var(--brass);color:#1a1408;border-color:var(--brass);font-weight:700;padding:9px 18px}
 
 .panel{
   background:var(--stone);
@@ -211,6 +212,7 @@ details.panel[open] summary{margin-bottom:10px}
   <header>
     <h1>Scriptorium</h1>
     <p>Your hand. Your fonts. Your scrolls.</p>
+    <button id="installBtn" hidden>⤓ Install app</button>
   </header>
 
   <section class="panel">
@@ -309,6 +311,33 @@ function toast(msg){
   const t=$("toast"); t.textContent=msg; t.classList.add("show");
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2400);
 }
+
+/* ---------- PWA install (runs regardless of app boot) ---------- */
+let deferredPrompt=null;
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").catch(err=>console.warn("SW register failed",err));
+}
+window.addEventListener("beforeinstallprompt", e=>{
+  e.preventDefault(); deferredPrompt=e;
+  const b=$("installBtn"); if(b) b.hidden=false;
+});
+window.addEventListener("appinstalled", ()=>{
+  deferredPrompt=null;
+  const b=$("installBtn"); if(b) b.hidden=true;
+  toast("Installed — find it on your home screen");
+});
+document.addEventListener("DOMContentLoaded",()=>{
+  const b=$("installBtn"); if(!b) return;
+  b.onclick=async()=>{
+    if(!deferredPrompt){
+      toast("Not installable yet — check manifest.webmanifest and the icons all load, then reload");
+      return;
+    }
+    deferredPrompt.prompt();
+    try{ await deferredPrompt.userChoice; }catch(e){}
+    deferredPrompt=null; b.hidden=true;
+  };
+});
 
 /* ---------- IndexedDB ---------- */
 function db(){
@@ -1142,9 +1171,6 @@ $("pdfBtn").onclick=async()=>{
     }
   }catch(e){ console.warn(e); }
   renderFonts(); renderGS(); applyState();
-  if("serviceWorker" in navigator){
-    navigator.serviceWorker.register("sw.js").catch(()=>{});
-  }
 })();
 </script>
 </body>
