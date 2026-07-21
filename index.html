@@ -835,9 +835,9 @@ const THEMES={
     },
     frame(doc,W,H){
       const brown=[112,78,32], deep=[90,60,20], gold=[150,120,55];
-      const OUT=8, IN=17, MID=12.5, midX=W/2, midY=H/2;
+      const OUT=8, IN=17, MID=12.5, E=5.5, midX=W/2, midY=H/2;
       doc.setLineJoin("round"); doc.setLineCap("round");
-      // text sits INSIDE the inner rule; every ornament lives in the band between the rules
+      // text sits INSIDE the inner rule
       doc.setDrawColor(...brown); doc.setLineWidth(0.9); doc.rect(OUT,OUT,W-2*OUT,H-2*OUT);
       doc.setLineWidth(0.4); doc.rect(IN,IN,W-2*IN,H-2*IN);
       // beadwork down the middle of the band
@@ -846,23 +846,12 @@ const THEMES={
       _bead(doc,MID+7,H-MID,midX-7,H-MID,7,0.42); _bead(doc,midX+7,H-MID,W-MID-7,H-MID,7,0.42);
       _bead(doc,MID,MID+7,MID,midY-7,7,0.42); _bead(doc,MID,midY+7,MID,H-MID-7,7,0.42);
       _bead(doc,W-MID,MID+7,W-MID,midY-7,7,0.42); _bead(doc,W-MID,midY+7,W-MID,H-MID-7,7,0.42);
-      // corner scrolls kept within the band
-      const cs=[[MID,MID,1,1],[W-MID,MID,-1,1],[MID,H-MID,1,-1],[W-MID,H-MID,-1,-1]];
-      cs.forEach(([cx,cy,sx,sy])=>{
-        doc.setDrawColor(...brown); doc.setLineWidth(0.5);
-        _spiral(doc, cx, cy, 3.1, 0.5, Math.atan2(-sy,-sx), 0.85, 44);
-        doc.setFillColor(...deep); doc.circle(cx, cy, 0.7, "F");
+      // two-tone diamonds OUTSIDE the outer rule, hugging the edges (corners + side midpoints)
+      const dpts=[[E,E],[W-E,E],[E,H-E],[W-E,H-E],[midX,E],[midX,H-E],[E,midY],[W-E,midY]];
+      dpts.forEach(([x,y])=>{
+        doc.setFillColor(...deep); _diamond(doc,x,y,1.9,"F");
+        doc.setFillColor(...gold); _diamond(doc,x,y,0.85,"F");
       });
-      // bosses sit on the outer-rule corners
-      doc.setFillColor(...gold);
-      [[OUT,OUT],[W-OUT,OUT],[OUT,H-OUT],[W-OUT,H-OUT]].forEach(([x,y])=>_diamond(doc,x,y,1.3,"F"));
-      // midside fleurons in the band
-      doc.setFillColor(...deep);
-      _diamond(doc,midX,MID,2,"F"); _diamond(doc,midX,H-MID,2,"F");
-      _diamond(doc,MID,midY,2,"F"); _diamond(doc,W-MID,midY,2,"F");
-      doc.setFillColor(...gold);
-      [[midX-5,MID],[midX+5,MID],[midX-5,H-MID],[midX+5,H-MID]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
-      [[MID,midY-5],[MID,midY+5],[W-MID,midY-5],[W-MID,midY+5]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
       doc.setLineCap("butt"); doc.setLineJoin("miter");
     }
   },
