@@ -941,6 +941,7 @@ $("pdfBtn").onclick=async()=>{
   const btn=$("pdfBtn");
   btn.disabled=true; btn.textContent="Binding…";
   try{
+    if(!window.jspdf){ toast("jspdf.umd.min.js is missing — upload it next to index.html"); return; }
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF({unit:"mm",format:"a4"});
     const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();

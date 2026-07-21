@@ -1,4 +1,4 @@
-const CACHE = "scriptorium-v7";
+const CACHE = "scriptorium-v8";
 const CORE = [
   "./",
   "./index.html",
@@ -12,9 +12,13 @@ const CORE = [
 ];
 
 self.addEventListener("install", e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())
-  );
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE);
+    // per-item add + allSettled: a missing optional file (e.g. jspdf) must NOT
+    // fail the whole install, or the app becomes non-installable as a PWA.
+    await Promise.allSettled(CORE.map(u => c.add(new Request(u, { cache: "reload" }))));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", e => {
