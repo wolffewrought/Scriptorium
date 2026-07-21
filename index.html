@@ -256,6 +256,9 @@ details.panel[open] summary{margin-bottom:10px}
     <label class="row" style="margin-top:10px;font-size:13px;gap:6px">
       <input type="checkbox" id="gTint"> Tint glyphs to theme ink
     </label>
+    <label class="row" style="margin-top:8px;font-size:13px;gap:6px">
+      <input type="checkbox" id="gCase"> Case sensitive (A \u2260 a)
+    </label>
     <div class="slider-row">
       <span>Glyph gap</span>
       <input type="range" id="gGap" min="0" max="30" value="4">
@@ -450,20 +453,24 @@ function activeGS(){
 }
 function rebuildSorted(g){
   g.sorted=[...g.items.keys()].sort((a,b)=>b.length-a.length);
+  // comparison strings honour the set's case mode; keys stay exact-case
+  g.cmp=g.sorted.map(k=>({key:k, m: g.cs ? k : k.toLowerCase()}));
 }
 function tokenize(text,g){
-  const out=[]; const low=text.toLowerCase();
-  let i=0, buf="";
-  const seqs=g.sorted;
+  const out=[]; let i=0, buf="";
+  const cs=!!g.cs;
+  const hay = cs ? text : text.toLowerCase();
+  const cmp = g.cmp || [];
   while(i<text.length){
-    let hit=null;
-    for(let s=0;s<seqs.length;s++){
-      if(low.startsWith(seqs[s],i)){ hit=seqs[s]; break; }
+    let hitKey=null, hitLen=0;
+    for(let s=0;s<cmp.length;s++){
+      const m=cmp[s].m;
+      if(m && hay.startsWith(m,i)){ hitKey=cmp[s].key; hitLen=m.length; break; }
     }
-    if(hit){
+    if(hitKey){
       if(buf){ out.push({t:buf}); buf=""; }
-      out.push({g:hit});
-      i+=hit.length;
+      out.push({g:hitKey});
+      i+=hitLen;
     }else{
       buf+=text[i]; i++;
     }
@@ -482,11 +489,11 @@ async function hydrateItem(it){
 async function loadGlyphSets(){
   const rows=await idb("glyphsets","readonly",st=>st.getAll());
   for(const r of (rows||[])){
-    const g={name:r.name,tint:!!r.tint,gap:r.gap||0,items:new Map(),sorted:[]};
+    const g={name:r.name,tint:!!r.tint,gap:r.gap||0,cs:!!r.cs,items:new Map(),sorted:[],cmp:[]};
     for(const it of (r.items||[])){
       const item={seq:it.seq,blob:it.blob};
       await hydrateItem(item);
-      g.items.set(it.seq.toLowerCase(),item);
+      g.items.set(it.seq,item);            // exact-case key
     }
     rebuildSorted(g);
     GS.set(r.id,g);
@@ -495,13 +502,13 @@ async function loadGlyphSets(){
 }
 function saveSet(id){
   const g=GS.get(id); if(!g) return;
-  const rec={id,name:g.name,tint:!!g.tint,gap:g.gap||0,
+  const rec={id,name:g.name,tint:!!g.tint,gap:g.gap||0,cs:!!g.cs,
     items:[...g.items.values()].map(it=>({seq:it.seq,blob:it.blob}))};
   idb("glyphsets","readwrite",st=>st.put(rec)).catch(e=>console.warn(e));
 }
 async function addMapping(seq,blob){
   const g=GS.get(GSedit); if(!g||!seq) return;
-  const key=seq.toLowerCase();
+  const key=seq;                            // exact-case key
   const old=g.items.get(key);
   if(old&&old.url) URL.revokeObjectURL(old.url);
   const item={seq,blob};
@@ -532,14 +539,15 @@ function renderGS(){
   if(GSedit&&GS.has(GSedit)) sel.value=GSedit;
   const g=GS.get(GSedit);
   $("gTint").checked=!!(g&&g.tint);
+  $("gCase").checked=!!(g&&g.cs);
   $("gGap").value=g?Math.round((g.gap||0)*100):4;
   $("gGapOut").textContent="."+String($("gGap").value).padStart(2,"0");
   const dis=!g;
-  ["gSeq","gAdd","gBatch","gImport","gTint","gGap","gsDel"].forEach(i=>$(i).disabled=dis);
+  ["gSeq","gAdd","gBatch","gImport","gTint","gCase","gGap","gsDel"].forEach(i=>$(i).disabled=dis);
   grid.innerHTML="";
   if(!g) return;
   if(!g.items.size){
-    grid.innerHTML='<div class="empty">Assign images to letters or combos — batch names files by their letters (me.png → "me").</div>';
+    grid.innerHTML='<div class="empty">Assign images to letters or combos. With "case sensitive" on, A and a are separate — map each. Batch names files by their glyphs (Me.png \u2192 "Me").</div>';
     return;
   }
   for(const [key,it] of g.items){
@@ -595,7 +603,7 @@ $("gsNew").onclick=async()=>{
   const name=(prompt("Glyph set name","Runes")||"").trim();
   if(!name) return;
   const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  GS.set(id,{name,tint:false,gap:0.04,items:new Map(),sorted:[]});
+  GS.set(id,{name,tint:false,gap:0.04,cs:true,items:new Map(),sorted:[],cmp:[]});
   GSedit=id;
   saveSet(id);
   S.fontId="g:"+id;
@@ -674,7 +682,7 @@ async function importSvgFont(text){
     if(!uni||!d||!d.trim()){ skipped++; continue; }
     const blob=fontGlyphToSvgBlob(mp,d);
     if(!blob){ skipped++; continue; }
-    const key=uni.toLowerCase();
+    const key=uni;                          // exact-case key
     if(g.items.has(key)){ collide++; const o=g.items.get(key); if(o.url) URL.revokeObjectURL(o.url); }
     const item={seq:uni,blob};
     await hydrateItem(item);
@@ -707,6 +715,10 @@ $("gFont").onchange=async e=>{
 $("gTint").onchange=e=>{
   const g=GS.get(GSedit); if(!g) return;
   g.tint=e.target.checked; saveSet(GSedit); renderGS(); refreshPreview();
+};
+$("gCase").onchange=e=>{
+  const g=GS.get(GSedit); if(!g) return;
+  g.cs=e.target.checked; rebuildSorted(g); saveSet(GSedit); refreshPreview();
 };
 $("gGap").oninput=e=>{
   const g=GS.get(GSedit); if(!g) return;
