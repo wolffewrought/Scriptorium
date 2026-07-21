@@ -279,10 +279,17 @@ details.panel[open] summary{margin-bottom:10px}
     </div>
   </section>
 
+  <section class="panel" style="padding:11px 12px">
+    <label class="row" style="font-size:13px;gap:7px;margin:0;align-items:flex-start">
+      <input type="checkbox" id="mdToggle" checked style="margin-top:2px">
+      <span>Discord formatting — <b>**bold**</b> <i>*italic*</i> <u>__underline__</u> <s>~~strike~~</s> <code style="font-family:monospace">`code`</code>, plus <b># headings</b> and <b>&gt; quotes</b></span>
+    </label>
+  </section>
+
   <section class="sheet-frame t-parchment" id="sheetFrame">
     <input type="text" id="titleInput" placeholder="Title (optional)" aria-label="Document title">
     <textarea id="sheet" class="skin t-parchment" placeholder="Begin your account here…" aria-label="Document body"></textarea>
-    <div class="pvlabel" id="pvLabel" hidden>Glyph preview</div>
+    <div class="pvlabel" id="pvLabel" hidden>Formatted preview</div>
     <div class="preview skin t-parchment" id="preview" hidden></div>
   </section>
 </div>
@@ -306,6 +313,7 @@ const S = {
   fonts:new Map()     // id -> {name, buf(ArrayBuffer)}
 };
 const GS = new Map();  // glyph sets: id -> {name,tint,gap,items:Map(lowerSeq->item),sorted:[keys]}
+let mdOn = true;       // Discord-style markdown formatting
 let GSedit = null;     // set currently open in the maker panel
 const $ = id => document.getElementById(id);
 const sheet=$("sheet"), titleInput=$("titleInput"), frame=$("sheetFrame");
@@ -576,22 +584,105 @@ function glyphEl(g,it){
   if(g.gap) el.style.marginRight=g.gap+"em";
   return el;
 }
+/* ---------- Discord markdown ---------- */
+const BLOCK={ h1:{m:1.55,bold:true,gap:0.25}, h2:{m:1.3,bold:true,gap:0.2}, h3:{m:1.12,bold:true,gap:0.15},
+              sub:{m:0.82,dim:true}, quote:{m:1,indent:true}, p:{m:1} };
+const MD_DELIMS=[["***",["b","i"]],["**",["b"]],["*",["i"]],["__",["u"]],["_",["i"]],["~~",["s"]],["`",["code"]]];
+function isWordChar(ch){ return !!ch && /\w/.test(ch); }
+function parseInline(str){
+  str=str||"";
+  if(!mdOn) return [{t:str}];
+  const runs=[], stack=[];
+  let i=0, buf="";
+  const flags=()=>{ const f={}; for(const e of stack) for(const k of e.ks) f[k]=true; return f; };
+  const flush=()=>{ if(buf){ runs.push(Object.assign({t:buf},flags())); buf=""; } };
+  const codeOpen=()=>stack.length&&stack[stack.length-1].d==="`";
+  while(i<str.length){
+    if(codeOpen()){
+      if(str[i]==="`"){ flush(); stack.pop(); i++; } else { buf+=str[i]; i++; }
+      continue;
+    }
+    if(str[i]==="\\"&&i+1<str.length){ buf+=str[i+1]; i+=2; continue; }
+    let d=null,ks=null;
+    for(const m of MD_DELIMS){ if(str.startsWith(m[0],i)){ d=m[0]; ks=m[1]; break; } }
+    if(d){
+      let idx=-1;
+      for(let s=stack.length-1;s>=0;s--){ if(stack[s].d===d){ idx=s; break; } }
+      if(d==="_"||d==="__"){                 // intraword underscore guard
+        const prev=str[i-1], next=str[i+d.length];
+        if(idx>=0){ if(isWordChar(next)){ buf+=d; i+=d.length; continue; } }
+        else { if(isWordChar(prev)){ buf+=d; i+=d.length; continue; } }
+      }
+      flush();
+      if(idx>=0) stack.length=idx; else stack.push({d,ks});
+      i+=d.length;
+    }else{ buf+=str[i]; i++; }
+  }
+  flush();
+  return runs.length?runs:[{t:""}];
+}
+function parseBlocks(text){
+  const lines=(text||"").replace(/\r/g,"").split("\n");
+  return lines.map(line=>{
+    if(!mdOn) return {type:"p",runs:[{t:line}]};
+    let type="p", c=line, mm;
+    if(mm=line.match(/^###\s+(.*)$/)) { type="h3"; c=mm[1]; }
+    else if(mm=line.match(/^##\s+(.*)$/)) { type="h2"; c=mm[1]; }
+    else if(mm=line.match(/^#\s+(.*)$/)) { type="h1"; c=mm[1]; }
+    else if(mm=line.match(/^-#\s+(.*)$/)) { type="sub"; c=mm[1]; }
+    else if(mm=line.match(/^>\s+(.*)$/)) { type="quote"; c=mm[1]; }
+    return {type, runs:parseInline(c)};
+  });
+}
+function hasMarkup(text){
+  return mdOn && (/[*_~`\\]/.test(text||"") || /^(#{1,3}\s|>\s|-#\s)/m.test(text||""));
+}
+function blankRuns(runs){ return !runs.length || (runs.length===1 && !runs[0].t); }
+
+function styleSpan(run){
+  const el=document.createElement("span");
+  if(run.b) el.style.fontWeight="700";
+  if(run.i) el.style.fontStyle="italic";
+  const deco=[]; if(run.u) deco.push("underline"); if(run.s) deco.push("line-through");
+  if(deco.length) el.style.textDecoration=deco.join(" ");
+  if(run.code){ el.style.fontFamily="ui-monospace,Consolas,monospace"; el.style.fontSize="0.92em"; }
+  return el;
+}
+function renderRunsInto(parent, runs, g){
+  for(const run of runs){
+    const span=styleSpan(run);
+    if(g && !run.code){
+      for(const tk of tokenize(run.t||"",g)){
+        if(tk.g!==undefined){ const it=g.items.get(tk.g); if(it){ span.appendChild(glyphEl(g,it)); continue; } }
+        span.appendChild(document.createTextNode(tk.t||""));
+      }
+    }else{
+      span.appendChild(document.createTextNode(run.t||""));
+    }
+    parent.appendChild(span);
+  }
+}
 function renderPreview(){
-  const g=activeGS(), pv=$("preview");
-  if(!g){ pv.hidden=true; $("pvLabel").hidden=true; return; }
-  pv.hidden=false; $("pvLabel").hidden=false;
+  const g=activeGS(), pv=$("preview"), lbl=$("pvLabel");
+  const show = !!g || hasMarkup(sheet.value) || hasMarkup(titleInput.value);
+  if(!show){ pv.hidden=true; lbl.hidden=true; return; }
+  pv.hidden=false; lbl.hidden=false;
   pv.innerHTML="";
   const frag=document.createDocumentFragment();
-  for(const tk of tokenize(sheet.value,g)){
-    if(tk.g!==undefined){
-      const it=g.items.get(tk.g);
-      if(it){ frag.appendChild(glyphEl(g,it)); continue; }
-    }
-    frag.appendChild(document.createTextNode(tk.t||""));
+  for(const blk of parseBlocks(sheet.value)){
+    const line=document.createElement("div");
+    const bs=BLOCK[blk.type]||BLOCK.p;
+    if(bs.m!==1) line.style.fontSize=bs.m+"em";
+    if(bs.bold) line.style.fontWeight="700";
+    if(bs.dim) line.style.opacity="0.7";
+    if(bs.indent){ line.style.borderLeft="3px solid currentColor"; line.style.paddingLeft="8px"; line.style.opacity="0.9"; }
+    if(blankRuns(blk.runs)) line.innerHTML="&nbsp;";
+    else renderRunsInto(line, blk.runs, g);
+    frag.appendChild(line);
   }
   if(!sheet.value){
     const em=document.createElement("span");
-    em.style.opacity=".45"; em.textContent="Glyph preview appears here as you type…";
+    em.style.opacity=".45"; em.textContent="Preview appears here as you type…";
     frag.appendChild(em);
   }
   pv.appendChild(frag);
@@ -748,7 +839,7 @@ let persistT;
 function persist(){
   clearTimeout(persistT);
   persistT=setTimeout(()=>{
-    kvSet("doc",{title:titleInput.value,text:sheet.value,theme:S.theme,fontId:S.fontId,size:S.size,lead:S.lead}).catch(()=>{});
+    kvSet("doc",{title:titleInput.value,text:sheet.value,theme:S.theme,fontId:S.fontId,size:S.size,lead:S.lead,md:mdOn}).catch(()=>{});
   },400);
 }
 
@@ -763,7 +854,8 @@ $("themeChips").onclick=e=>{
   S.theme=b.dataset.theme; applyState(); persist();
 };
 sheet.oninput=()=>{ persist(); refreshPreview(); };
-titleInput.oninput=persist;
+$("mdToggle").onchange=e=>{ mdOn=e.target.checked; persist(); refreshPreview(); };
+titleInput.oninput=()=>{ persist(); refreshPreview(); };
 
 /* ---------- TXT export ---------- */
 function safeName(){
@@ -1003,10 +1095,11 @@ $("pdfBtn").onclick=async()=>{
     const title=titleInput.value.trim();
     const paras=sheet.value.replace(/\r/g,"").split("\n");
 
-    // decide render path: vector-embed the TTF, or draw via canvas (any font the browser can show)
+    // decide render path: vector-embed the TTF, or draw via canvas (styles/glyphs/OTF need canvas)
     const gsActive=activeGS();
+    const needsRich = hasMarkup(title) || hasMarkup(sheet.value);
     let fontName="times", vector=true;
-    if(gsActive){ vector=false; }
+    if(gsActive || needsRich){ vector=false; }
     else if(S.fontId&&S.fonts.has(S.fontId)){
       const f=S.fonts.get(S.fontId);
       if(isCFF(f.buf)){ vector=false; }
@@ -1050,9 +1143,15 @@ $("pdfBtn").onclick=async()=>{
       const px=pt*0.3528*k;
       const lineHpx=lineH*k, marginPx=margin*k, maxPx=maxW*k, bottomPx=CH-margin*k;
       const rgb=a=>"rgb("+a[0]+","+a[1]+","+a[2]+")";
+      const rgba=(a,al)=>"rgba("+a[0]+","+a[1]+","+a[2]+","+al+")";
       const famFB="Georgia,serif";
       const fam=(S.fontId&&S.fonts.has(S.fontId))?('"uf-'+S.fontId+'",Georgia,serif'):famFB;
-      if(!gsActive) await document.fonts.load(px+"px "+fam).catch(()=>{});
+      const baseFam=gsActive?famFB:fam;
+      if(!gsActive){
+        await document.fonts.load(px+"px "+fam).catch(()=>{});
+        await document.fonts.load("700 "+px+"px "+fam).catch(()=>{});
+        await document.fonts.load("italic "+px+"px "+fam).catch(()=>{});
+      }
       const inkCol=rgb(t.ink), titleCol=rgb(t.title);
 
       const pages=[];
@@ -1075,80 +1174,86 @@ $("pdfBtn").onclick=async()=>{
         cx.fillStyle=color; cx.fillRect(0,0,w,h);
         it._tc[color]=c; return c;
       }
-      function atomize(ctx,str,fpx){
-        const out=[];
-        const pushText=p=>{
-          if(!p) return;
-          if(/^\s+$/.test(p)) out.push({sp:1,w:ctx.measureText(p).width});
-          else out.push({tx:p,w:ctx.measureText(p).width});
-        };
-        if(gsActive){
-          const gapPx=(gsActive.gap||0)*fpx;
-          ctx.font=fpx+"px "+famFB;
-          for(const tk of tokenize(str,gsActive)){
-            if(tk.g!==undefined){
-              const it=gsActive.items.get(tk.g);
-              if(it){ out.push({g:it,iw:it.aspect*fpx,w:it.aspect*fpx+gapPx}); continue; }
+      function fontStr(st,fpx){
+        let s=""; if(st&&st.i) s+="italic "; if(st&&st.b) s+="700 ";
+        return s+fpx+"px "+((st&&st.code)?"ui-monospace, Consolas, monospace":baseFam);
+      }
+      function atomizeRuns(ctx,runs,fpx){
+        const out=[], gapPx=(gsActive?(gsActive.gap||0):0)*fpx;
+        for(const run of runs){
+          const st={b:!!run.b,i:!!run.i,u:!!run.u,s:!!run.s,code:!!run.code};
+          ctx.font=fontStr(st,fpx);
+          const pushText=p=>{ if(!p) return; const w=ctx.measureText(p).width; out.push(/^\s+$/.test(p)?{sp:1,w,st}:{tx:p,w,st}); };
+          if(gsActive && !st.code){
+            for(const tk of tokenize(run.t||"",gsActive)){
+              if(tk.g!==undefined){ const it=gsActive.items.get(tk.g); if(it){ out.push({g:it,iw:it.aspect*fpx,w:it.aspect*fpx+gapPx,st}); continue; } }
+              for(const p of (tk.t||"").split(/(\s+)/)) pushText(p);
             }
-            for(const p of (tk.t||"").split(/(\s+)/)) pushText(p);
+          }else{
+            for(const p of (run.t||"").split(/(\s+)/)) pushText(p);
           }
-        }else{
-          ctx.font=fpx+"px "+fam;
-          for(const p of str.split(/(\s+)/)) pushText(p);
         }
         return out;
       }
       function toLines(at,maxw){
         const ls=[]; let cur=[], cw=0;
         for(const a of at){
-          if(a.sp){
-            if(cw+a.w>maxw){ ls.push(cur); cur=[]; cw=0; }
-            else if(cur.length){ cur.push(a); cw+=a.w; }
-            continue;
-          }
-          if(cw+a.w>maxw&&cur.length){
-            while(cur.length&&cur[cur.length-1].sp){ cw-=cur.pop().w; }
-            ls.push(cur); cur=[]; cw=0;
-          }
+          if(a.sp){ if(cw+a.w>maxw){ ls.push(cur); cur=[]; cw=0; } else if(cur.length){ cur.push(a); cw+=a.w; } continue; }
+          if(cw+a.w>maxw&&cur.length){ while(cur.length&&cur[cur.length-1].sp){ cw-=cur.pop().w; } ls.push(cur); cur=[]; cw=0; }
           cur.push(a); cw+=a.w;
         }
         if(cur.length||!ls.length) ls.push(cur);
         return ls;
       }
-      function drawLine(ctx,l,x0,yy,fpx,color,center,maxw){
-        let lw=0; for(const a of l) lw+=a.w;
+      function drawStyledLine(ctx,line,x0,yy,fpx,color,center,maxw){
+        let lw=0; for(const a of line) lw+=a.w;
         let cx=center?x0+(maxw-lw)/2:x0;
-        ctx.font=fpx+"px "+(gsActive?famFB:fam);
-        ctx.fillStyle=color; ctx.textAlign="left";
-        for(const a of l){
+        ctx.textAlign="left";
+        for(const a of line){
+          const st=a.st||{};
           if(a.g){
             const src=(gsActive&&gsActive.tint)?tintedImg(a.g,color):a.g.img;
             ctx.drawImage(src,cx,yy-fpx,a.iw,fpx);
           }else if(a.tx){
-            ctx.fillText(a.tx,cx,yy);
+            ctx.font=fontStr(st,fpx); ctx.fillStyle=color; ctx.fillText(a.tx,cx,yy);
+          }
+          if((st.u||st.s)&&!a.sp){
+            ctx.strokeStyle=color; ctx.lineWidth=Math.max(1,fpx*0.055);
+            if(st.u){ const uy=yy+fpx*0.12; ctx.beginPath(); ctx.moveTo(cx,uy); ctx.lineTo(cx+a.w,uy); ctx.stroke(); }
+            if(st.s){ const sy=yy-fpx*0.30; ctx.beginPath(); ctx.moveTo(cx,sy); ctx.lineTo(cx+a.w,sy); ctx.stroke(); }
           }
           cx+=a.w;
         }
       }
+      // title (inline-styled, centered)
       if(title){
-        const tpx=px*1.5;
-        for(const l of toLines(atomize(x,title,tpx),maxPx)){
-          fresh(); drawLine(x,l,marginPx,y,tpx,titleCol,true,maxPx); y+=lineHpx*1.5;
+        const tpx=px*1.5, tRuns=parseInline(title);
+        for(const l of toLines(atomizeRuns(x,tRuns,tpx),maxPx)){
+          fresh(); drawStyledLine(x,l,marginPx,y,tpx,titleCol,true,maxPx); y+=lineHpx*1.5;
         }
         y+=lineHpx*0.6;
       }
-      for(const p of paras){
-        if(p===""){ y+=lineHpx; fresh(); continue; }
-        for(const l of toLines(atomize(x,p,px),maxPx)){
-          fresh(); drawLine(x,l,marginPx,y,px,inkCol,false,maxPx); y+=lineHpx;
+      // body blocks: headings, quotes, subtext, styled runs
+      for(const blk of parseBlocks(sheet.value)){
+        const bs=BLOCK[blk.type]||BLOCK.p;
+        if(blankRuns(blk.runs)){ y+=lineHpx; fresh(); continue; }
+        const fpx=px*(bs.m||1), lh=lineHpx*(bs.m||1), indent=bs.indent?6*k:0;
+        const runs=bs.bold?blk.runs.map(r=>Object.assign({},r,{b:true})):blk.runs;
+        const col=bs.dim?rgba(t.ink,0.62):inkCol;
+        for(const l of toLines(atomizeRuns(x,runs,fpx),maxPx-indent)){
+          fresh();
+          if(bs.indent){ x.strokeStyle=rgba(t.ink,0.5); x.lineWidth=2*k; x.beginPath(); x.moveTo(marginPx+2*k,y-fpx*0.82); x.lineTo(marginPx+2*k,y+fpx*0.15); x.stroke(); }
+          drawStyledLine(x,l,marginPx+indent,y,fpx,col,false,maxPx-indent);
+          y+=lh;
         }
+        if(bs.gap) y+=lineHpx*bs.gap;
       }
       pages.forEach((c,i)=>{
         if(i>0) doc.addPage();
         paintPage();
         doc.addImage(c.toDataURL("image/png"),"PNG",0,0,W,H);
       });
-      toast(gsActive?"Glyph script rendered":"Font rendered as image (OTF) — text not selectable");
+      toast(gsActive?"Glyph script rendered":(needsRich?"Formatted PDF saved":"Font rendered as image — text not selectable"));
     }
     // embed original text invisibly so the app can reverse it later
     let fontLabel="Default serif";
@@ -1184,7 +1289,9 @@ $("pdfBtn").onclick=async()=>{
       const fid=doc.fontId||"";
       S.fontId=(fid&&(S.fonts.has(fid)||(fid.startsWith("g:")&&GS.has(fid.slice(2)))))?fid:"";
       S.size=doc.size||20; S.lead=doc.lead||1.5;
+      if(doc.md===false) mdOn=false;
       $("sizeRange").value=S.size; $("leadRange").value=Math.round(S.lead*10);
+      $("mdToggle").checked=mdOn;
     }
   }catch(e){ console.warn(e); }
   renderFonts(); renderGS(); applyState();
