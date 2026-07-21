@@ -835,33 +835,34 @@ const THEMES={
     },
     frame(doc,W,H){
       const brown=[112,78,32], deep=[90,60,20], gold=[150,120,55];
+      const OUT=8, IN=17, MID=12.5, midX=W/2, midY=H/2;
       doc.setLineJoin("round"); doc.setLineCap("round");
-      doc.setDrawColor(...brown); doc.setLineWidth(0.9); doc.rect(10,10,W-20,H-20);
-      doc.setLineWidth(0.3); doc.rect(12.5,12.5,W-25,H-25);
-      const midX=W/2, midY=H/2;
-      // beadwork along inner rule between ornaments
+      // text sits INSIDE the inner rule; every ornament lives in the band between the rules
+      doc.setDrawColor(...brown); doc.setLineWidth(0.9); doc.rect(OUT,OUT,W-2*OUT,H-2*OUT);
+      doc.setLineWidth(0.4); doc.rect(IN,IN,W-2*IN,H-2*IN);
+      // beadwork down the middle of the band
       doc.setFillColor(...brown);
-      _bead(doc,24,11.2,midX-8,11.2,8,0.42); _bead(doc,midX+8,11.2,W-24,11.2,8,0.42);
-      _bead(doc,24,H-11.2,midX-8,H-11.2,8,0.42); _bead(doc,midX+8,H-11.2,W-24,H-11.2,8,0.42);
-      _bead(doc,11.2,24,11.2,midY-8,8,0.42); _bead(doc,11.2,midY+8,11.2,H-24,8,0.42);
-      _bead(doc,W-11.2,24,W-11.2,midY-8,8,0.42); _bead(doc,W-11.2,midY+8,W-11.2,H-24,8,0.42);
-      // corner scrolls + bosses
-      const cs=[[12.5,12.5,1,1],[W-12.5,12.5,-1,1],[12.5,H-12.5,1,-1],[W-12.5,H-12.5,-1,-1]];
+      _bead(doc,MID+7,MID,midX-7,MID,7,0.42); _bead(doc,midX+7,MID,W-MID-7,MID,7,0.42);
+      _bead(doc,MID+7,H-MID,midX-7,H-MID,7,0.42); _bead(doc,midX+7,H-MID,W-MID-7,H-MID,7,0.42);
+      _bead(doc,MID,MID+7,MID,midY-7,7,0.42); _bead(doc,MID,midY+7,MID,H-MID-7,7,0.42);
+      _bead(doc,W-MID,MID+7,W-MID,midY-7,7,0.42); _bead(doc,W-MID,midY+7,W-MID,H-MID-7,7,0.42);
+      // corner scrolls kept within the band
+      const cs=[[MID,MID,1,1],[W-MID,MID,-1,1],[MID,H-MID,1,-1],[W-MID,H-MID,-1,-1]];
       cs.forEach(([cx,cy,sx,sy])=>{
         doc.setDrawColor(...brown); doc.setLineWidth(0.5);
-        _spiral(doc, cx+sx*8, cy+sy*8, 4.6, 0.6, Math.atan2(-sy,-sx), 0.8, 44);
-        doc.setFillColor(...deep); doc.circle(cx+sx*8, cy+sy*8, 0.8, "F");
-        doc.setDrawColor(...gold); doc.setLineWidth(0.4);
-        doc.line(cx+sx*2, cy, cx+sx*6.5, cy); doc.line(cx, cy+sy*2, cx, cy+sy*6.5);
-        doc.setFillColor(...gold); _diamond(doc, cx+sx*3.2, cy+sy*3.2, 1.3, "F");
+        _spiral(doc, cx, cy, 3.1, 0.5, Math.atan2(-sy,-sx), 0.85, 44);
+        doc.setFillColor(...deep); doc.circle(cx, cy, 0.7, "F");
       });
-      // midside fleurons
-      doc.setFillColor(...deep);
-      _diamond(doc,midX,11.2,2,"F"); _diamond(doc,midX,H-11.2,2,"F");
-      _diamond(doc,11.2,midY,2,"F"); _diamond(doc,W-11.2,midY,2,"F");
+      // bosses sit on the outer-rule corners
       doc.setFillColor(...gold);
-      [[midX-4.5,11.2],[midX+4.5,11.2],[midX-4.5,H-11.2],[midX+4.5,H-11.2]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
-      [[11.2,midY-4.5],[11.2,midY+4.5],[W-11.2,midY-4.5],[W-11.2,midY+4.5]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
+      [[OUT,OUT],[W-OUT,OUT],[OUT,H-OUT],[W-OUT,H-OUT]].forEach(([x,y])=>_diamond(doc,x,y,1.3,"F"));
+      // midside fleurons in the band
+      doc.setFillColor(...deep);
+      _diamond(doc,midX,MID,2,"F"); _diamond(doc,midX,H-MID,2,"F");
+      _diamond(doc,MID,midY,2,"F"); _diamond(doc,W-MID,midY,2,"F");
+      doc.setFillColor(...gold);
+      [[midX-5,MID],[midX+5,MID],[midX-5,H-MID],[midX+5,H-MID]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
+      [[MID,midY-5],[MID,midY+5],[W-MID,midY-5],[W-MID,midY+5]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
       doc.setLineCap("butt"); doc.setLineJoin("miter");
     }
   },
@@ -886,36 +887,35 @@ const THEMES={
     },
     frame(doc,W,H){
       const steel=[86,80,70], dark=[38,35,31], blood=[128,34,34], bone=[150,140,126];
+      const OUT=8, IN=17, cxm=W/2;
       doc.setLineCap("butt"); doc.setLineJoin("miter");
-      const cxm=W/2;
-      // heavy top & bottom bars + thin secondary rules
-      doc.setDrawColor(...steel);
-      doc.setLineWidth(1.6); doc.line(12,13,W-12,13); doc.line(12,H-13,W-12,H-13);
-      doc.setLineWidth(0.5); doc.line(12,15.6,W-12,15.6); doc.line(12,H-15.6,W-12,H-15.6);
-      doc.setLineWidth(0.8); doc.line(13,13,13,H-13); doc.line(W-13,13,W-13,H-13);
-      // oxblood accent rails
-      doc.setDrawColor(...blood); doc.setLineWidth(0.7);
-      doc.line(32,18,W-32,18); doc.line(32,H-18,W-32,H-18);
-      // reticle corner brackets
+      // outer + inner rules; text sits inside the inner rule
+      doc.setDrawColor(...steel); doc.setLineWidth(1.4); doc.rect(OUT,OUT,W-2*OUT,H-2*OUT);
+      doc.setLineWidth(0.5); doc.rect(IN,IN,W-2*IN,H-2*IN);
+      // heavy accent bars top & bottom, inside band
+      doc.setLineWidth(1.4); doc.line(OUT,11.5,W-OUT,11.5); doc.line(OUT,H-11.5,W-OUT,H-11.5);
+      // oxblood rails
+      doc.setDrawColor(...blood); doc.setLineWidth(0.7); doc.line(30,14,W-30,14); doc.line(30,H-14,W-30,H-14);
+      // reticle brackets along the outer rule
       doc.setDrawColor(...bone); doc.setLineWidth(1.1);
-      const L=26,o=13;
+      const L=22,o=OUT;
       doc.line(o,o,o+L,o); doc.line(o,o,o,o+L);
       doc.line(W-o,o,W-o-L,o); doc.line(W-o,o,W-o,o+L);
       doc.line(o,H-o,o+L,H-o); doc.line(o,H-o,o,H-o-L);
       doc.line(W-o,H-o,W-o-L,H-o); doc.line(W-o,H-o,W-o,H-o-L);
-      // rivets across bars
+      // rivets across bars, corners, sides
       const n=8;
-      for(let i=0;i<=n;i++){ const x=32+(W-64)*i/n; _bolt(doc,x,13,1.5,dark,bone); _bolt(doc,x,H-13,1.5,dark,bone); }
-      [[o,o],[W-o,o],[o,H-o],[W-o,H-o]].forEach(([x,y])=>_bolt(doc,x,y,1.9,dark,bone));
-      _bolt(doc,13,H/2,1.5,dark,bone); _bolt(doc,W-13,H/2,1.5,dark,bone);
-      // hazard chevrons + core diamonds
-      doc.setDrawColor(...blood); doc.setLineWidth(1.2);
-      doc.line(cxm-5,19.5,cxm,23.5); doc.line(cxm,23.5,cxm+5,19.5);
-      doc.line(cxm-5,H-19.5,cxm,H-23.5); doc.line(cxm,H-23.5,cxm+5,H-19.5);
-      doc.setFillColor(...blood); _diamond(doc,cxm,13,2.2,"F"); _diamond(doc,cxm,H-13,2.2,"F");
+      for(let i=0;i<=n;i++){ const x=30+(W-60)*i/n; _bolt(doc,x,11.5,1.4,dark,bone); _bolt(doc,x,H-11.5,1.4,dark,bone); }
+      [[o,o],[W-o,o],[o,H-o],[W-o,H-o]].forEach(([x,y])=>_bolt(doc,x,y,1.8,dark,bone));
+      _bolt(doc,OUT,H/2,1.4,dark,bone); _bolt(doc,W-OUT,H/2,1.4,dark,bone);
+      // hazard chevrons + diamonds, inside band
+      doc.setDrawColor(...blood); doc.setLineWidth(1.1);
+      doc.line(cxm-5,11.5,cxm,15.5); doc.line(cxm,15.5,cxm+5,11.5);
+      doc.line(cxm-5,H-11.5,cxm,H-15.5); doc.line(cxm,H-15.5,cxm+5,H-11.5);
+      doc.setFillColor(...blood); _diamond(doc,cxm,11.5,1.9,"F"); _diamond(doc,cxm,H-11.5,1.9,"F");
     }
   },
-  gothic:{ ink:[200,166,89], title:[212,182,110], margin:24,
+  gothic:{ ink:[200,166,89], title:[212,182,110], margin:22,
     bg(c){
       const x=c.getContext("2d"),W=c.width,H=c.height;
       const g=x.createRadialGradient(W/2,H*0.25,0,W/2,H/2,H*0.8);
@@ -928,36 +928,35 @@ const THEMES={
     },
     frame(doc,W,H){
       const gold=[160,132,60], bright=[205,170,95], dark=[70,56,24];
+      const OUT=8, IN=17, midY=H/2;
       doc.setLineJoin("round"); doc.setLineCap("round");
-      const midY=H/2;
-      doc.setDrawColor(...dark); doc.setLineWidth(1.8); doc.rect(9,9,W-18,H-18);
-      doc.setDrawColor(...gold); doc.setLineWidth(0.7); doc.rect(11.5,11.5,W-23,H-23);
-      doc.setLineWidth(0.3); doc.rect(13.5,13.5,W-27,H-27);
-      // beadwork along the gold rule
+      doc.setDrawColor(...dark); doc.setLineWidth(1.6); doc.rect(OUT-1.2,OUT-1.2,W-2*(OUT-1.2),H-2*(OUT-1.2));
+      doc.setDrawColor(...gold); doc.setLineWidth(0.7); doc.rect(OUT,OUT,W-2*OUT,H-2*OUT);
+      doc.setLineWidth(0.4); doc.rect(IN,IN,W-2*IN,H-2*IN);
+      // beadwork along the outer gold rule
       doc.setFillColor(...gold);
-      _bead(doc,11.5,11.5,W-11.5,11.5,6,0.5); _bead(doc,11.5,H-11.5,W-11.5,H-11.5,6,0.5);
-      _bead(doc,11.5,11.5,11.5,H-11.5,6,0.5); _bead(doc,W-11.5,11.5,W-11.5,H-11.5,6,0.5);
-      // corner quatrefoil rosettes
-      [[11.5,11.5],[W-11.5,11.5],[11.5,H-11.5],[W-11.5,H-11.5]].forEach(([cx,cy])=>{
-        doc.setFillColor(...bright); doc.circle(cx,cy,1.7,"F");
-        doc.setFillColor(...gold);
-        [[2.7,0],[-2.7,0],[0,2.7],[0,-2.7]].forEach(([dx,dy])=>doc.circle(cx+dx,cy+dy,1.1,"F"));
-        doc.setFillColor(...dark); doc.circle(cx,cy,0.65,"F");
+      _bead(doc,OUT,OUT,W-OUT,OUT,6,0.5); _bead(doc,OUT,H-OUT,W-OUT,H-OUT,6,0.5);
+      _bead(doc,OUT,OUT,OUT,H-OUT,6,0.5); _bead(doc,W-OUT,OUT,W-OUT,H-OUT,6,0.5);
+      // corner rosettes at outer corners
+      [[OUT,OUT],[W-OUT,OUT],[OUT,H-OUT],[W-OUT,H-OUT]].forEach(([cx,cy])=>{
+        doc.setFillColor(...bright); doc.circle(cx,cy,1.6,"F");
+        doc.setFillColor(...gold); [[2.5,0],[-2.5,0],[0,2.5],[0,-2.5]].forEach(([dx,dy])=>doc.circle(cx+dx,cy+dy,1.0,"F"));
+        doc.setFillColor(...dark); doc.circle(cx,cy,0.6,"F");
       });
-      // cathedral arch rows top & bottom
+      // cathedral arches spring from the inner rule, rising outward into the band
       doc.setDrawColor(...gold); doc.setLineWidth(0.5);
-      const inset=22, cells=9, cw=(W-2*inset)/cells, aw=cw*0.86;
+      const inset=26, cells=9, cw=(W-2*inset)/cells, aw=cw*0.86, rk=0.42;
       for(let i=0;i<cells;i++){
         const x=inset+i*cw+(cw-aw)/2;
-        _arch(doc,x,21,aw,0.5); _arch(doc,x,H-21,aw,-0.5);
+        _arch(doc,x,IN,aw,rk); _arch(doc,x,H-IN,aw,-rk);
         doc.setFillColor(...bright);
-        doc.circle(x+aw/2,21-0.866*aw*0.5,0.6,"F"); doc.circle(x+aw/2,H-21+0.866*aw*0.5,0.6,"F");
+        doc.circle(x+aw/2,IN-0.866*aw*rk,0.55,"F"); doc.circle(x+aw/2,H-IN+0.866*aw*rk,0.55,"F");
       }
-      // side fleurs
+      // side fleurs mid-band
       doc.setFillColor(...gold);
-      _diamond(doc,11.5,midY,2.1,"F"); _diamond(doc,W-11.5,midY,2.1,"F");
+      _diamond(doc,OUT+3.5,midY,1.8,"F"); _diamond(doc,W-OUT-3.5,midY,1.8,"F");
       doc.setFillColor(...bright);
-      [[11.5,midY-5],[11.5,midY+5],[W-11.5,midY-5],[W-11.5,midY+5]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
+      [[OUT+3.5,midY-5],[OUT+3.5,midY+5],[W-OUT-3.5,midY-5],[W-OUT-3.5,midY+5]].forEach(([x,y])=>doc.circle(x,y,0.7,"F"));
       doc.setLineCap("butt"); doc.setLineJoin("miter");
     }
   },

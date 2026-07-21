@@ -1,4 +1,4 @@
-const CACHE = "scriptorium-v9";
+const CACHE = "scriptorium-v10";
 const CORE = [
   "./",
   "./index.html",
