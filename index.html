@@ -312,30 +312,47 @@ function toast(msg){
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2400);
 }
 
-/* ---------- PWA install (runs regardless of app boot) ---------- */
+/* ---------- PWA install + self-diagnostics ---------- */
 let deferredPrompt=null;
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("sw.js").catch(err=>console.warn("SW register failed",err));
 }
-window.addEventListener("beforeinstallprompt", e=>{
-  e.preventDefault(); deferredPrompt=e;
-  const b=$("installBtn"); if(b) b.hidden=false;
-});
+window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); deferredPrompt=e; });
 window.addEventListener("appinstalled", ()=>{
   deferredPrompt=null;
   const b=$("installBtn"); if(b) b.hidden=true;
   toast("Installed — find it on your home screen");
 });
+async function installDiagnostics(){
+  const L=[];
+  const check=async u=>{ try{ const r=await fetch(u,{cache:"no-store"}); return r.ok?"OK":("MISSING ("+r.status+")"); }catch(e){ return "MISSING (error)"; } };
+  L.push("Secure https: "+(location.protocol==="https:"?"yes":"NO"));
+  let reg=null; try{ reg=await navigator.serviceWorker.getRegistration(); }catch(e){}
+  L.push("Service worker: "+(reg?(navigator.serviceWorker.controller?"active":"registered — reload once"):"NOT registered"));
+  L.push("manifest.webmanifest: "+await check("manifest.webmanifest"));
+  L.push("icon-192.png: "+await check("icon-192.png"));
+  L.push("icon-512.png: "+await check("icon-512.png"));
+  L.push("icon-512-maskable.png: "+await check("icon-512-maskable.png"));
+  L.push("jspdf.umd.min.js: "+await check("jspdf.umd.min.js"));
+  return L.join("\n");
+}
 document.addEventListener("DOMContentLoaded",()=>{
   const b=$("installBtn"); if(!b) return;
+  const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone;
+  b.hidden=standalone;
   b.onclick=async()=>{
-    if(!deferredPrompt){
-      toast("Not installable yet — check manifest.webmanifest and the icons all load, then reload");
-      return;
+    if(deferredPrompt){
+      deferredPrompt.prompt();
+      try{ await deferredPrompt.userChoice; }catch(e){}
+      deferredPrompt=null; b.hidden=true; return;
     }
-    deferredPrompt.prompt();
-    try{ await deferredPrompt.userChoice; }catch(e){}
-    deferredPrompt=null; b.hidden=true;
+    b.textContent="Checking…";
+    const rep=await installDiagnostics();
+    b.textContent="⤓ Install app";
+    const bad=/MISSING|NOT registered|: NO/.test(rep);
+    alert("Install readiness\n\n"+rep+"\n\n"+(bad
+      ? "Upload the files marked MISSING into the SAME folder as index.html, wait ~1 min for GitHub Pages to rebuild, then reload and tap again."
+      : "All good. Open the browser menu (\u2630) \u2192 Add page to \u2192 Home screen. On Samsung Internet that now installs as a real app (no browser badge)."));
   };
 });
 
